@@ -56,7 +56,7 @@ Consumers can then add the channel to `~/.config/guix/channels.scm`:
   (branch "master")
   (introduction
    (make-channel-introduction
-    "SIGNED-INTRODUCTION-COMMIT"
+    "7eb3c7727b341ac671f1b7a06054a8aacc28cb52"
     (openpgp-fingerprint
      "FF0F1FE0A176071F0E39A94DFF93E1DAE0897EDE"))))
  %default-channels)
@@ -133,7 +133,7 @@ git commit -SFF0F1FE0A176071F0E39A94DFF93E1DAE0897EDE \
 git verify-commit HEAD
 guix git authenticate -k origin/keyring \
   --end="$(git rev-parse HEAD)" \
-  SIGNED-INTRODUCTION-COMMIT \
+  7eb3c7727b341ac671f1b7a06054a8aacc28cb52 \
   FF0F1FE0A176071F0E39A94DFF93E1DAE0897EDE
 git push origin HEAD:master
 gh pr close NUMBER --comment "Applied as signed commit $(git rev-parse HEAD)."
@@ -152,7 +152,7 @@ git cherry-pick -SFF0F1FE0A176071F0E39A94DFF93E1DAE0897EDE \
 git verify-commit HEAD
 guix git authenticate -k origin/keyring \
   --end="$(git rev-parse HEAD)" \
-  SIGNED-INTRODUCTION-COMMIT \
+  7eb3c7727b341ac671f1b7a06054a8aacc28cb52 \
   FF0F1FE0A176071F0E39A94DFF93E1DAE0897EDE
 git push origin HEAD:master
 gh pr close NUMBER --comment "Applied as signed commit $(git rev-parse HEAD)."
