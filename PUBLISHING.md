@@ -81,11 +81,13 @@ guix time-machine -C channels.scm -- build rust-toolchain-proxies
 `.github/workflows/ci.yml` runs the complete offline and integration release
 validation on pushes, pull requests, and manual dispatches.
 
-Both workflows bootstrap from Ubuntu's Guix package and then pull the
-authenticated Guix revision pinned in `.github/guix-channels.scm`. This avoids
-depending on an archived third-party Guix installer action and keeps CI package
-evaluation reproducible. Update that pin explicitly when adopting a newer Guix
-revision.
+Both workflows install the official Guix 1.5.0 binary archive after verifying
+its pinned SHA-256 digest, use a pinned and verified revision of Guix's official
+foreign-distribution installer, and start its systemd daemon. The bootstrap also
+loads the AppArmor profile needed for Guix user namespaces on Ubuntu 24.04. It
+deliberately skips `guix pull`, so bootstrap does not compile an arbitrary Guix
+revision when substitutes are unavailable. The complete release validation
+still builds the provider packages and toolchains through the Guix daemon.
 
 `.github/workflows/update-manifests.yml` runs every day at 05:23 UTC and can
 also be started manually. It downloads stable and nightly from the official Rust

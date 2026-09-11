@@ -25,6 +25,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Guix
+        timeout-minutes: 15
         run: .github/scripts/setup-guix.sh
 
       - name: Fetch and verify official manifests
