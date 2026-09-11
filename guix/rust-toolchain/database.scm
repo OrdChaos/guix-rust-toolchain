@@ -10,9 +10,18 @@
             file-sha256 channel? channel-manifest-url))
 
 (define manifests-directory
-  (string-append (dirname (dirname (dirname
-                  (canonicalize-path (search-path %load-path "rust-toolchain/database.scm")))))
-                 "/manifests"))
+  (let ((internal (getenv "GUIX_RUST_TOOLCHAIN_INTERNAL_MANIFESTS")))
+    (if internal
+        (begin
+          (unless (string-prefix? "/gnu/store/" internal)
+            (error "internal manifest directory is not in the Guix store"
+                   internal))
+          internal)
+        (string-append (dirname (dirname (dirname
+                        (canonicalize-path
+                         (search-path %load-path
+                                      "rust-toolchain/database.scm")))))
+                       "/manifests"))))
 
 (define (file-sha256 path)
   (bytevector->base16-string (file-hash (hash-algorithm sha256) path)))
