@@ -48,7 +48,9 @@ The first use realizes the selected package through Guix. Subsequent uses read
 a small cache under `${XDG_CACHE_HOME:-$HOME/.cache}/guix-rust-toolchain` and
 execute the store binary directly. Cache entries are validated against their
 complete request and store target. Guix indirect roots keep selected toolchains
-alive; deleting the cache only causes them to be realized again.
+alive. Previous requests remain rooted until the cache is removed; run
+`rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/guix-rust-toolchain"` to retire them.
+Deleting the cache only causes active toolchains to be realized again on use.
 
 ## Package API
 

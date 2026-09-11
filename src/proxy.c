@@ -47,6 +47,19 @@ static void mkdir_if_missing(const char *path) {
   if (mkdir(path, 0700) && errno != EEXIST) die("cannot create cache directory");
 }
 
+static void mkdir_hierarchy(const char *path) {
+  char *copy = strdup(path);
+  if (!copy) die("out of memory");
+  for (char *slash = copy + 1; *slash; slash++) {
+    if (*slash != '/') continue;
+    *slash = 0;
+    mkdir_if_missing(copy);
+    *slash = '/';
+  }
+  mkdir_if_missing(copy);
+  free(copy);
+}
+
 static char *read_file(const char *path, size_t *length) {
   int fd = open(path, O_RDONLY);
   if (fd < 0) die("cannot read selected toolchain file");
@@ -84,8 +97,13 @@ static char *find_config(void) {
     if (regular_file(toml)) return toml;
     free(toml);
     char *slash = strrchr(directory, '/');
-    if (!slash || slash == directory) break;
-    *slash = 0;
+    if (!slash) break;
+    if (slash == directory) {
+      if (!directory[1]) break;
+      directory[1] = 0;
+    } else {
+      *slash = 0;
+    }
   }
   return NULL;
 }
@@ -225,11 +243,11 @@ int main(int argc, char **argv) {
   uint64_t hash = hash_bytes(identity, identity_length, UINT64_C(1469598103934665603));
   const char *base = getenv("XDG_CACHE_HOME"), *home = getenv("HOME");
   char *fallback = NULL;
-  if (!base) {
-    if (!home) fail("HOME or XDG_CACHE_HOME is required");
+  if (!base || !base[0]) {
+    if (!home || !home[0]) fail("HOME or XDG_CACHE_HOME is required");
     fallback = join(home, ".cache"); base = fallback;
   }
-  mkdir_if_missing(base);
+  mkdir_hierarchy(base);
   char *cache = join(base, "guix-rust-toolchain"); mkdir_if_missing(cache);
   char *entries = join(cache, "entries"); mkdir_if_missing(entries);
   char *roots = join(cache, "roots"); mkdir_if_missing(roots);

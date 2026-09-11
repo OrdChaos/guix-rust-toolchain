@@ -54,4 +54,13 @@ case "$project_version" in
 esac
 
 "$proxy/cargo-stable" --version | grep '^cargo 1\.98\.1 '
+
+HOME="$cache/empty-xdg-home" XDG_CACHE_HOME= \
+  "$proxy/cargo" +stable --version | grep '^cargo 1\.98\.1 '
+test -d "$cache/empty-xdg-home/.cache/guix-rust-toolchain"
+
+XDG_CACHE_HOME="$cache/nested/cache" \
+  "$proxy/cargo" +stable --version | grep '^cargo 1\.98\.1 '
+test -d "$cache/nested/cache/guix-rust-toolchain"
+
 printf '%s\n' "PASS proxy"
