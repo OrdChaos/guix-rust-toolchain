@@ -92,5 +92,5 @@
 output, with Guix runtime libraries and a native Guix linker environment.")
       (license (list license:asl2.0 license:expat)))))
 
-(define %rust-stable (rust-toolchain "1.98.1"))
-(define %rust-nightly (rust-toolchain "nightly-2026-09-10"))
+(define %rust-stable (rust-toolchain "stable"))
+(define %rust-nightly (rust-toolchain "nightly"))

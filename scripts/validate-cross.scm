@@ -9,7 +9,7 @@
              (guix store))
 
 (define rust
-  (rust-toolchain "1.98.1" #:profile 'minimal
+  (rust-toolchain "stable" #:profile 'minimal
                   #:targets '("wasm32-unknown-unknown"
                               "aarch64-unknown-linux-gnu")))
 (define cross-gcc (cross-gcc-toolchain "aarch64-linux-gnu"))
@@ -17,7 +17,7 @@
 (define check
   (package
     (name "rust-toolchain-cross-check")
-    (version "1.98.1")
+    (version (package-version rust))
     (source #f)
     (build-system trivial-build-system)
     (arguments

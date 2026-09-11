@@ -70,7 +70,7 @@
         (format #t "PASS native ~a ~a\n" channel (derivation->output-path drv))))))
 
 (define channels (if (null? (cdr (command-line)))
-                     '("1.98.1" "nightly-2026-09-10") (cdr (command-line))))
+                     '("stable" "nightly") (cdr (command-line))))
 (define results
   (map (lambda (channel)
          (catch #t

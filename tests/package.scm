@@ -3,8 +3,10 @@
 (test-begin "package")
 (define runner (test-runner-current))
 (test-assert "normal package" (package? %rust-stable))
-(test-equal "pinned stable" "1.98.1" (package-version %rust-stable))
-(test-equal "pinned nightly" "nightly-2026-09-10" (package-version %rust-nightly))
+(test-equal "current stable alias" (package-version (rust-toolchain "stable"))
+  (package-version %rust-stable))
+(test-equal "current nightly alias" (package-version (rust-toolchain "nightly"))
+  (package-version %rust-nightly))
 (test-equal "stable package name" "rust-toolchain-stable"
   (package-name %rust-stable))
 (test-equal "nightly package name" "rust-toolchain-nightly"

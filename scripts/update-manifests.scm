@@ -22,6 +22,24 @@
       (error "malformed official checksum response" path))
     (car fields)))
 
+(define (manifest-release-version manifest)
+  (car (string-tokenize (manifest-version manifest))))
+
+(define (ensure-moving-alias-does-not-rollback channel manifest old directory)
+  (when (assoc channel old)
+    (let ((previous (resolve-manifest channel #:directory directory)))
+      (cond
+       ((string=? channel "nightly")
+        (when (string<? (manifest-date manifest) (manifest-date previous))
+          (error "refusing to roll nightly alias backward"
+                 (manifest-date previous) (manifest-date manifest))))
+       ((member channel '("stable" "beta"))
+        (when (version>? (manifest-release-version previous)
+                         (manifest-release-version manifest))
+          (error "refusing to roll release alias backward"
+                 channel (manifest-release-version previous)
+                 (manifest-release-version manifest))))))))
+
 (define* (update-manifests channels #:key (directory manifests-directory)
                            (fetch fetch-official))
   (unless (and (pair? channels) (every channel? channels))
@@ -65,10 +83,16 @@
          (dynamic-wind
            (const #t)
            (lambda ()
-             (let* ((index (string-append directory "/index.scm"))
-                    (old (if (file-exists? index) (read-manifest-index index) '()))
-                    (new old) (updates '()))
-               (for-each
+              (let* ((index (string-append directory "/index.scm"))
+                     (old (if (file-exists? index) (read-manifest-index index) '()))
+                     (new old) (updates '()))
+                (for-each
+                 (match-lambda
+                   ((channel _ _ manifest _)
+                    (ensure-moving-alias-does-not-rollback
+                     channel manifest old directory)))
+                 downloads)
+                (for-each
                 (match-lambda
                   ((channel raw hash manifest aliases)
                    (let ((entry (list (string-append "snapshots/" hash ".toml") hash)))

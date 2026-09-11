@@ -6,10 +6,11 @@ toolchains, arbitrary manifest components and targets, standard
 `rust-toolchain.toml` selection, and rustup-style command proxies without using
 rustup or mutable toolchain installation state.
 
-The bundled snapshots currently provide Rust 1.98.1 and
-nightly-2026-09-10. The host platform is currently limited to
-`x86_64-linux`; target standard libraries remain an open string set governed by
-the selected official manifest.
+The bundled `stable` and `nightly` aliases follow checksum-pinned snapshots in
+`manifests/index.scm`; exact versions and dated nightlies remain available after
+an alias advances. The host platform is currently limited to `x86_64-linux`;
+target standard libraries remain an open string set governed by the selected
+official manifest.
 
 ## Use The Proxy
 
@@ -74,7 +75,8 @@ omitted.
 
 This repository is a Guix channel with package modules under `guix/`. Add its
 Git URL to a channel declaration in the usual way; `.guix-channel` sets the
-module directory automatically.
+module directory automatically. See `PUBLISHING.md` for GitHub publication,
+channel authentication, and the automated update workflow.
 
 ## Update Manifests
 
@@ -121,6 +123,11 @@ Rust distribution server:
 ```sh
 ./scripts/validate-release.sh --live
 ```
+
+GitHub Actions run the release validation for pushes and pull requests. A daily
+workflow checks the official stable and nightly manifests and opens or updates a
+validated manifest pull request when either channel changes. Automated commits
+must be merged with a key authorized by the Guix channel; see `PUBLISHING.md`.
 
 ## License
 

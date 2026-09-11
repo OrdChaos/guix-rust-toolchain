@@ -32,8 +32,9 @@ deduplicated by (component, target), preserving request order.
 
 Run `guix repl -L guix scripts/update-manifests.scm CHANNEL ...` from the project.
 Supported inputs are `stable`, `beta`, `nightly`, `nightly-YYYY-MM-DD`, and full
-`MAJOR.MINOR.PATCH` versions. The default bundled aliases are stable/1.98.1 and
-nightly/nightly-2026-09-10; beta is supported by the updater but not prebundled.
+`MAJOR.MINOR.PATCH` versions. The default packages resolve the bundled stable and
+nightly aliases; exact versions and dated nightlies remain pinned when those
+aliases advance. Beta is supported by the updater but not prebundled.
 Use absolute `-L` and script paths when invoking from another directory.
 
 Only this explicit maintainer script accesses the network. It requires `curl`
@@ -46,8 +47,9 @@ an independent signature/authenticity guarantee.
 
 A publication lock serializes writers. Snapshot paths contain their complete
 SHA-256 and are linked into place without overwriting existing paths. Exact
-version/date index entries cannot be rebound; moving aliases can. Updating
-stable also pins its exact version; updating nightly also pins its date.
+version/date index entries cannot be rebound. Moving aliases can advance, but
+stable/beta version and nightly date rollbacks are rejected. Updating stable
+also pins its exact version; updating nightly also pins its date.
 All alias changes are one validated, fsynced temporary index renamed atomically.
 Readers see either the old or new complete index. A crash before index replacement
 may leave unreferenced immutable snapshots; directory entries are not fsynced,

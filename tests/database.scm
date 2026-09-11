@@ -21,9 +21,10 @@
     (store-manifests-directory
      (dirname (canonicalize-path
                (search-path %load-path "guix/packages.scm"))))))
+(define stable-date (manifest-date (resolve-manifest "stable")))
 (define before (getcwd))
 (chdir "/tmp")
-(test-equal "no working directory dependency" "2026-09-03"
+(test-equal "no working directory dependency" stable-date
   (manifest-date (resolve-manifest "stable")))
 (chdir before)
 (define temp (mkstemp "/tmp/rust-index-test-XXXXXX"))

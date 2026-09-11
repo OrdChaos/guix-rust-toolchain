@@ -32,10 +32,19 @@
      (update-manifests '("stable") #:directory directory #:fetch mock-fetch)
      (test-equal "published snapshot resolves" "1.98.1 (fixture)"
        (manifest-version (resolve-manifest "stable" #:directory directory)))
-     (test-equal "stable pins exact version" '("1.98.1" "stable")
-       (map car (read-manifest-index (string-append directory "/index.scm"))))
-     (let ((before (state directory)))
-       (update-manifests '("stable") #:directory directory #:fetch mock-fetch)
+      (test-equal "stable pins exact version" '("1.98.1" "stable")
+        (map car (read-manifest-index (string-append directory "/index.scm"))))
+      (let ((before (state directory)))
+        (let ((older (string-append tmp "/older.toml")))
+          (copy-file fixture older)
+          (substitute* older
+            (("1\\.98\\.1 \\(fixture\\)") "1.97.0 (fixture)"))
+          (set! source older)
+          (test-error "stable alias cannot roll back" #t
+            (update-manifests '("stable") #:directory directory #:fetch mock-fetch))
+          (test-equal "stable rollback writes nothing" before (state directory))
+          (set! source fixture))
+        (update-manifests '("stable") #:directory directory #:fetch mock-fetch)
        (test-equal "idempotent publication" before (state directory))
        (for-each
         (lambda (failure)
@@ -72,14 +81,29 @@
           (test-error "immutable version cannot be rebound" #t
             (update-manifests '("1.98.1") #:directory directory #:fetch mock-fetch))
           (test-equal "immutable conflict writes nothing" before (state directory))))
-     (set! source (string-append manifests-directory "/"
-                   (cadr (assoc "nightly" (read-manifest-index (string-append manifests-directory "/index.scm"))))))
-     (update-manifests '("nightly") #:directory directory #:fetch mock-fetch)
-     (test-equal "nightly dated alias" "2026-09-10"
-       (manifest-date (resolve-manifest "nightly-2026-09-10" #:directory directory)))
-     (let ((before (state directory)))
-       (test-error "wrong nightly date" #t
-         (update-manifests '("nightly-2026-09-09") #:directory directory #:fetch mock-fetch))
+      (set! source (string-append manifests-directory "/"
+                    (cadr (assoc "nightly" (read-manifest-index (string-append manifests-directory "/index.scm"))))))
+      (let ((nightly-date (manifest-date (read-manifest source))))
+        (update-manifests '("nightly") #:directory directory #:fetch mock-fetch)
+        (test-equal "nightly dated alias" nightly-date
+          (manifest-date
+           (resolve-manifest (string-append "nightly-" nightly-date)
+                             #:directory directory)))
+        (let ((before (state directory))
+              (older (string-append tmp "/older-nightly.toml")))
+          (copy-file source older)
+          (substitute* older ((nightly-date) "2000-01-01"))
+          (set! source older)
+          (test-error "nightly alias cannot roll back" #t
+            (update-manifests '("nightly") #:directory directory #:fetch mock-fetch))
+          (test-equal "nightly rollback writes nothing" before (state directory))
+          (set! source (string-append manifests-directory "/"
+                        (cadr (assoc "nightly" (read-manifest-index
+                                                (string-append manifests-directory
+                                                               "/index.scm"))))))))
+      (let ((before (state directory)))
+        (test-error "wrong nightly date" #t
+          (update-manifests '("nightly-2000-01-01") #:directory directory #:fetch mock-fetch))
         (test-equal "wrong nightly date writes nothing" before (state directory)))
       (set! source fixture)
       (let ((snapshot (string-append directory "/snapshots/" (file-sha256 fixture) ".toml")))

@@ -1,0 +1,76 @@
+name: Update Rust manifests
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-rust-manifests
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Track stable and nightly
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install Guix
+        run: .github/scripts/setup-guix.sh
+
+      - name: Fetch and verify official manifests
+        id: update
+        shell: bash
+        run: |
+          set -o pipefail
+          guix repl -L guix scripts/update-manifests.scm stable nightly \
+            | tee manifest-update.log
+          if git diff --quiet -- manifests; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo '## Rust manifest update'
+            echo '```text'
+            cat manifest-update.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate generated manifests
+        if: steps.update.outputs.changed == 'true'
+        run: ./scripts/validate-release.sh
+
+      - name: Create or update manifest pull request
+        if: steps.update.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: automation/update-rust-manifests
+          delete-branch: true
+          add-paths: |
+            manifests/index.scm
+            manifests/snapshots/*.toml
+          commit-message: Update bundled Rust manifests
+          title: Update bundled Rust manifests
+          body: |
+            Automated daily update of the bundled official Rust stable and
+            nightly dist manifests.
+
+            The updater verified the official HTTPS `.sha256` responses,
+            parsed and validated both manifests, and the complete offline and
+            integration release validation passed before this PR was created.
+
+            Do not create a merge commit: its unsigned bot parent would break
+            Guix channel authentication. Review the changes, then use a signed
+            squash or signed cherry-pick commit made by a key authorized by the
+            channel.
