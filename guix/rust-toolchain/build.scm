@@ -52,10 +52,11 @@
     (for-each
      (lambda (file)
        (when (string-contains (command-output "readelf" "-d" file) "Dynamic section")
-         (let* ((old (command-output "patchelf" "--print-rpath" file))
-                (needed (filter (lambda (s) (not (string-null? s)))
-                                (string-split (command-output "patchelf" "--print-needed" file)
-                                              #\newline)))
+          (let* ((old (command-output "patchelf" "--print-rpath" file))
+                 (old-paths (if (string-null? old) '() (string-split old #\:)))
+                 (needed (filter (lambda (s) (not (string-null? s)))
+                                 (string-split (command-output "patchelf" "--print-needed" file)
+                                               #\newline)))
                 (paths
                  (map
                   (lambda (soname)
@@ -65,13 +66,18 @@
                       (or (and local (dirname local)) external
                           (error "unresolved host DT_NEEDED" file soname))))
                   needed)))
-           (format #t "ELF ~a\n  NEEDED ~s\n  original RPATH ~s\n" file needed old)
-           (invoke "patchelf" "--set-rpath"
-                   (string-join (delete-duplicates
-                                 (append (if (string-null? old) '() (string-split old #\:)) paths)) ":") file)
-           (when (string-contains (command-output "readelf" "-l" file) "INTERP")
-             (invoke "patchelf" "--set-interpreter" interpreter file))
-           (invoke "readelf" "-l" "-d" file))))
+            (unless (every (lambda (path)
+                             (or (string-prefix? "/gnu/store/" path)
+                                 (string=? "$ORIGIN" path)
+                                 (string-prefix? "$ORIGIN/" path)))
+                           old-paths)
+              (error "impure upstream RPATH" file old-paths))
+            (format #t "ELF ~a\n  NEEDED ~s\n  original RPATH ~s\n" file needed old)
+            (invoke "patchelf" "--set-rpath"
+                    (string-join (delete-duplicates
+                                  (append old-paths paths)) ":") file)
+            (when (string-contains (command-output "readelf" "-l" file) "INTERP")
+              (invoke "patchelf" "--set-interpreter" interpreter file)))))
      host-files))
   ;; Include GCC as well as Guix's ld wrapper for direct cargo use in a pure shell.
   (mkdir-p (string-append out "/libexec/rust-toolchain"))

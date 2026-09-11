@@ -10,16 +10,23 @@
 
 (define project-directory
   (dirname (dirname (dirname
-           (canonicalize-path (search-path %load-path "rust-toolchain/proxy.scm"))))))
+            (canonicalize-path (search-path %load-path "rust-toolchain/proxy.scm"))))))
+
+(define (manifest-source? file stat)
+  (let ((name (basename file)))
+    (and (not (string=? name ".update.lock"))
+         (not (string-prefix? ".index-" name))
+         (not (string-prefix? ".new-" name)))))
 
 (define provider-tree
   (file-union "guix-rust-toolchain-provider"
     `(("guix/rust-toolchain"
        ,(local-file (string-append project-directory "/guix/rust-toolchain")
-                    #:recursive? #t))
+                     #:recursive? #t))
       ("manifests"
        ,(local-file (string-append project-directory "/manifests")
-                    #:recursive? #t)))))
+                     #:recursive? #t
+                     #:select? manifest-source?)))))
 
 (define proxy-source
   (local-file (string-append project-directory "/src/proxy.c")))
@@ -55,7 +62,8 @@
                    "cargo-stable" "rustc-stable" "rustdoc-stable"
                    "cargo-nightly" "rustc-nightly" "rustdoc-nightly"))))))))
     (inputs (list guix))
-    (home-page "https://www.rust-lang.org")
+    (supported-systems '("x86_64-linux"))
+    (home-page "https://rust-lang.org/")
     (synopsis "Stateless proxies for Guix-provided Rust toolchains")
     (description "Select project Rust toolchains and realize immutable Guix
 packages without using rustup or a mutable toolchain installation database.")

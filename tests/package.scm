@@ -5,6 +5,12 @@
 (test-assert "normal package" (package? %rust-stable))
 (test-equal "pinned stable" "1.98.1" (package-version %rust-stable))
 (test-equal "pinned nightly" "nightly-2026-09-10" (package-version %rust-nightly))
+(test-equal "stable package name" "rust-toolchain-stable"
+  (package-name %rust-stable))
+(test-equal "nightly package name" "rust-toolchain-nightly"
+  (package-name %rust-nightly))
+(test-equal "host-qualified channel" "1.98.1"
+  (package-version (rust-toolchain "1.98.1-x86_64-unknown-linux-gnu")))
 (test-equal "single output" '("out") (package-outputs %rust-stable))
 (test-error "unsupported host" #t (rust-toolchain "stable" #:system "aarch64-linux"))
 (test-assert "open cross targets"

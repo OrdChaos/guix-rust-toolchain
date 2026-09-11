@@ -9,14 +9,17 @@
   #:export (resolve-manifest read-manifest-index manifests-directory
             file-sha256 channel? channel-manifest-url))
 
+(define (store-manifests-directory path)
+  (let ((canonical (canonicalize-path path)))
+    (unless (and (string-match "^/gnu/store/[0-9a-z]{32}-.+" canonical)
+                 (eq? 'directory (stat:type (stat canonical))))
+      (error "internal manifest directory is not in the Guix store" path))
+    canonical))
+
 (define manifests-directory
   (let ((internal (getenv "GUIX_RUST_TOOLCHAIN_INTERNAL_MANIFESTS")))
     (if internal
-        (begin
-          (unless (string-prefix? "/gnu/store/" internal)
-            (error "internal manifest directory is not in the Guix store"
-                   internal))
-          internal)
+        (store-manifests-directory internal)
         (string-append (dirname (dirname (dirname
                         (canonicalize-path
                          (search-path %load-path

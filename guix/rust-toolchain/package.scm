@@ -21,10 +21,17 @@
   #:export (rust-toolchain %rust-stable %rust-nightly))
 
 (define* (rust-toolchain channel #:key (profile 'default) (components '())
-                         (targets '()) (system (%current-system)))
+                          (targets '()) (system (%current-system)))
   (unless (string=? system "x86_64-linux")
     (error "unsupported Rust toolchain host system" system))
-  (let* ((manifest (resolve-manifest channel))
+  (let* ((host-suffix "-x86_64-unknown-linux-gnu")
+         (channel (if (string-suffix? host-suffix channel)
+                      (substring channel 0
+                                 (- (string-length channel)
+                                    (string-length host-suffix)))
+                      channel))
+         (manifest (resolve-manifest channel))
+         (rust-version (manifest-version manifest))
          (selected (resolve-components
                     manifest (make-rust-toolchain-spec channel #:profile profile
                               #:components components #:targets targets)
@@ -38,7 +45,11 @@
                             (component-sha256 component)))))
                selected)))
     (package
-      (name "rust-toolchain")
+      (name (cond ((string-contains rust-version "-nightly")
+                   "rust-toolchain-nightly")
+                  ((string-contains rust-version "-beta")
+                   "rust-toolchain-beta")
+                  (else "rust-toolchain-stable")))
       (version (if (string-prefix? "nightly" channel)
                    (string-append "nightly-" (manifest-date manifest))
                    (car (string-split (manifest-version manifest) #\space))))
@@ -75,7 +86,7 @@
                    #$(file-append gcc "/bin"))
              #$(file-append glibc "/lib"))))))
       (supported-systems '("x86_64-linux"))
-      (home-page "https://www.rust-lang.org")
+      (home-page "https://rust-lang.org/")
       (synopsis "Coherent upstream Rust toolchain snapshot")
       (description "Install verified upstream Rust component archives into one
 output, with Guix runtime libraries and a native Guix linker environment.")

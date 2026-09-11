@@ -44,7 +44,13 @@ static char *join(const char *left, const char *right) {
 }
 
 static void mkdir_if_missing(const char *path) {
-  if (mkdir(path, 0700) && errno != EEXIST) die("cannot create cache directory");
+  if (!mkdir(path, 0700)) return;
+  if (errno != EEXIST) die("cannot create cache directory");
+  struct stat status;
+  if (lstat(path, &status) || !S_ISDIR(status.st_mode)) {
+    errno = ENOTDIR;
+    die("unsafe cache directory component");
+  }
 }
 
 static void mkdir_hierarchy(const char *path) {
@@ -60,8 +66,8 @@ static void mkdir_hierarchy(const char *path) {
   free(copy);
 }
 
-static char *read_file(const char *path, size_t *length) {
-  int fd = open(path, O_RDONLY);
+static char *read_file(const char *path, size_t *length, int nofollow) {
+  int fd = open(path, O_RDONLY | (nofollow ? O_NOFOLLOW : 0));
   if (fd < 0) die("cannot read selected toolchain file");
   struct stat status;
   if (fstat(fd, &status)) die("cannot stat selected toolchain file");
@@ -142,7 +148,7 @@ static void write_all(int fd, const void *data, size_t length) {
 
 static int identity_matches(const char *path, const char *identity, size_t length) {
   size_t stored_length = 0;
-  char *stored = read_file(path, &stored_length);
+  char *stored = read_file(path, &stored_length, 1);
   int equal = stored_length == length && !memcmp(stored, identity, length);
   free(stored);
   return equal;
@@ -212,6 +218,10 @@ int main(int argc, char **argv) {
     selector = argv[1] + 1;
     drop_override = 1;
   }
+  if (!selector) {
+    char *environment = getenv("RUSTUP_TOOLCHAIN");
+    if (environment && environment[0]) selector = environment;
+  }
 
   char *config = NULL, *contents = NULL;
   size_t contents_length = 0, identity_length;
@@ -221,7 +231,7 @@ int main(int argc, char **argv) {
     identity = allocate(identity_length + 1);
     identity_length = (size_t)sprintf(identity, "channel:%s", selector);
   } else if ((config = find_config())) {
-    contents = read_file(config, &contents_length);
+    contents = read_file(config, &contents_length, 0);
     identity_length = strlen(config) + contents_length + 7;
     identity = allocate(identity_length);
     int prefix = sprintf(identity, "file:%s\n", config);
@@ -232,10 +242,10 @@ int main(int argc, char **argv) {
     identity_length = strlen(identity);
   }
 
-  size_t provider_length = strlen(PROVIDER);
+  size_t provider_length = strlen(PROVIDER), guix_length = strlen(GUIX);
   char *request_identity = identity;
-  identity = allocate(provider_length + identity_length + 11);
-  int prefix = sprintf(identity, "provider:%s\n", PROVIDER);
+  identity = allocate(provider_length + guix_length + identity_length + 17);
+  int prefix = sprintf(identity, "provider:%s\nguix:%s\n", PROVIDER, GUIX);
   memcpy(identity + prefix, request_identity, identity_length);
   identity_length += (size_t)prefix;
   free(request_identity);
@@ -247,6 +257,7 @@ int main(int argc, char **argv) {
     if (!home || !home[0]) fail("HOME or XDG_CACHE_HOME is required");
     fallback = join(home, ".cache"); base = fallback;
   }
+  if (base[0] != '/') fail("XDG cache directory must be absolute");
   mkdir_hierarchy(base);
   char *cache = join(base, "guix-rust-toolchain"); mkdir_if_missing(cache);
   char *entries = join(cache, "entries"); mkdir_if_missing(entries);
@@ -255,7 +266,7 @@ int main(int argc, char **argv) {
   char lock_name[22]; snprintf(lock_name, sizeof lock_name, "%s.lock", name);
   char *entry = join(entries, name), *root = join(roots, name);
   char *lock_path = join(entries, lock_name);
-  int lock = open(lock_path, O_CREAT | O_RDWR | O_CLOEXEC, 0600);
+  int lock = open(lock_path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0600);
   if (lock < 0 || flock(lock, LOCK_EX)) die("cannot lock proxy cache");
 
   char *binary = NULL;
@@ -271,7 +282,8 @@ int main(int argc, char **argv) {
       snprintf(request_name, sizeof request_name, "%s%s", name,
                is_toml ? ".toml" : ".toolchain");
       char *request = join(entries, request_name);
-      int request_fd = open(request, O_CREAT | O_TRUNC | O_WRONLY, 0600);
+      int request_fd = open(request, O_CREAT | O_TRUNC | O_WRONLY | O_NOFOLLOW,
+                            0600);
       if (request_fd < 0) die("cannot write toolchain request snapshot");
       write_all(request_fd, contents, contents_length); close(request_fd);
       char *quoted = scheme_string(request);
@@ -287,7 +299,7 @@ int main(int argc, char **argv) {
       free(quoted);
     }
     realize(argument, root);
-    int entry_fd = open(entry, O_CREAT | O_TRUNC | O_WRONLY, 0600);
+    int entry_fd = open(entry, O_CREAT | O_TRUNC | O_WRONLY | O_NOFOLLOW, 0600);
     if (entry_fd < 0) die("cannot write proxy cache identity");
     write_all(entry_fd, identity, identity_length); close(entry_fd);
     binary = root_target(root, tool);

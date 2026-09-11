@@ -1,9 +1,11 @@
 (use-modules (rust-toolchain manifest) (rust-toolchain database)
-             (rust-toolchain component) (srfi srfi-64))
+             (rust-toolchain component) (guix build utils) (srfi srfi-64))
 (test-begin "database")
 (define runner (test-runner-current))
 (define root (dirname manifests-directory))
 (define fixture (read-manifest (string-append root "/tests/fixtures/components.toml")))
+(define store-manifests-directory
+  (@@ (rust-toolchain database) store-manifests-directory))
 (define (resolve . args)
   (resolve-components fixture (apply make-rust-toolchain-spec "stable" args) "future-host"))
 (test-equal "unknown future names resolve; gzip fallback" "https://example.org/future.tar.gz"
@@ -12,6 +14,13 @@
   (component-name (car (resolve #:profile 'empty #:components '("first-alias")))))
 (test-error "unavailable fixture" #t (resolve #:components '("unavailable")))
 (test-error "no guessed preview suffix" #t (resolve #:components '("future")))
+(test-error "store manifest traversal rejected" #t
+  (store-manifests-directory "/gnu/store/../../tmp"))
+(test-assert "store manifest directory accepted"
+  (string-prefix? "/gnu/store/"
+    (store-manifests-directory
+     (dirname (canonicalize-path
+               (search-path %load-path "guix/packages.scm"))))))
 (define before (getcwd))
 (chdir "/tmp")
 (test-equal "no working directory dependency" "2026-09-03"
