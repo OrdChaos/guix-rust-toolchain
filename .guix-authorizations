@@ -1,4 +1,6 @@
 (authorizations
  (version 0)
  (("FF0F1FE0A176071F0E39A94DFF93E1DAE0897EDE"
-   (name "OrdChaos"))))
+   (name "OrdChaos"))
+  ("5A5F539FD271C277ACC197CDD17FBF2AA776E8E4"
+   (name "Manifest Automation"))))
