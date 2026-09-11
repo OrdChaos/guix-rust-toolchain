@@ -13,10 +13,12 @@ array-table paths, duplicate keys/tables and trailing garbage rather than silent
 losing data. Raw data is a string-keyed alist; arrays are lists in source order.
 Names are open strings, not a maintained component or target enumeration.
 
-`database.scm` locates `manifests/` relative to its provider module, not the
-process working directory. The index is one validated Scheme datum, read with
-reader evaluation disabled, never loaded/evaluated as code. Digest-derived paths
-prevent traversal; resolution checks snapshot bytes against the index hash.
+`database.scm` normally locates `manifests/` relative to its provider module,
+not the process working directory. The store-built proxy supplies its bundled
+manifest location through an internal override restricted to `/gnu/store`.
+The index is one validated Scheme datum, read with reader evaluation disabled,
+never loaded/evaluated as code. Digest-derived paths prevent traversal;
+resolution checks snapshot bytes against the index hash.
 
 Profiles expand the manifest's `[profiles]` entries filtered against the host's
 `pkg.rust.target.HOST.components` and `extensions`. Thus `rust-mingw` is omitted
@@ -68,6 +70,15 @@ but never a partially written index. Do not modify snapshots manually.
   `read-manifest-index`, `manifests-directory`, `file-sha256`, `channel?`, and
   `channel-manifest-url`. Resolution accepts optional `#:directory` for tests or
   alternate explicitly selected databases, never network fallback.
+- `(rust-toolchain package)`: `rust-toolchain` constructs one immutable package
+  from a channel, profile, component list, and target list; `%rust-stable` and
+  `%rust-nightly` are the bundled defaults. The current host is x86_64-linux.
+- `(rust-toolchain toolchain-file)`: parses legacy and TOML project files, finds
+  them through parent directories, and lowers their complete request to a
+  package.
+- `(rust-toolchain proxy)`: `%rust-toolchain-proxies` provides rustup-style
+  command names. The C fast path validates request-keyed cache entries and Guix
+  indirect roots before directly executing the selected store binary.
 - `(rust-toolchain toml)`: `read-rust-toml` takes an input port.
 - The updater script defines `update-manifests` (channel list, optional
   `#:directory` and injected `#:fetch` for tests), `fetch-official`, and
@@ -82,14 +93,22 @@ guix repl -L guix tests/manifest.scm
 guix repl -L guix tests/components.scm
 guix repl -L guix tests/database.scm
 guix repl -L guix tests/updater.scm
+guix repl -L guix tests/package.scm
+guix repl -L guix tests/toolchain-file.scm
+guix repl -L guix tests/proxy.scm
 ```
 
 Explicit network integration (temporary database only):
 `guix repl -L guix tests/updater-live.scm`.
 
+Native, cross, and proxy integration checks are respectively
+`guix repl -L guix scripts/validate-toolchains.scm`,
+`guix repl -L guix scripts/validate-cross.scm`, and
+`./scripts/validate-proxy.sh`.
+
 The parser is intentionally not full TOML. Future official syntax outside the
 documented subset requires an explicit parser extension with a real-manifest
-regression. This layer does not download component archives, construct Guix
-packages, or install/patch toolchains; it supplies verified metadata to those
-layers. Resolution returns only available components; unavailable requests throw
-instead of returning a record with `component-available?` false.
+regression. Package construction downloads only the fixed component origins
+selected from this metadata, then installs and patches them inside the Guix
+build sandbox. Resolution returns only available components; unavailable
+requests throw instead of returning a record with `component-available?` false.
