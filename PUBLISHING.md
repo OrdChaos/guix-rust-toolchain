@@ -92,78 +92,24 @@ still builds the provider packages and toolchains through the Guix daemon.
 `.github/workflows/update-manifests.yml` runs every day at 05:23 UTC and can
 also be started manually. It downloads stable and nightly from the official Rust
 distribution server, verifies their `.sha256` files, publishes changed snapshots
-to the working tree, runs the complete release validation, and creates or updates
-the `automation/update-rust-manifests` pull request. If upstream has not changed,
-it creates no commit or pull request. Stable/beta version rollbacks and nightly
-date rollbacks are rejected rather than proposed.
+to the working tree, and runs the complete release validation. If validation
+passes, it creates an OpenPGP-signed commit, authenticates the complete channel
+history, and fast-forwards `master`. If upstream has not changed, it creates no
+commit. Stable/beta version rollbacks and nightly date rollbacks are rejected.
 
 In the GitHub repository settings, open **Actions > General > Workflow
-permissions**, select **Read and write permissions**, and enable **Allow GitHub
-Actions to create and approve pull requests**. The workflows otherwise require
-no repository secrets.
+permissions** and select **Read and write permissions**. Add the armored private
+key and passphrase for fingerprint
+`5A5F539FD271C277ACC197CDD17FBF2AA776E8E4` as the
+`AUTOMATION_GPG_PRIVATE_KEY` and `AUTOMATION_GPG_PASSPHRASE` repository secrets.
+This dedicated key is authorized in `.guix-authorizations`; its public key is
+stored as `automation.key` on the orphan `keyring` branch.
 
-The update workflow deliberately creates a pull request instead of pushing to
-`master`. Its bot commit is not part of the authenticated channel history until
-a maintainer reviews the changes and merges them with an authorized OpenPGP
-signature. Do not merge the unsigned bot commit into authenticated history. A
-safe flow is to fetch the automation branch, create a signed squash or signed
-cherry-pick commit locally, and push that signed commit to `master`. An ordinary
-merge is not safe: signing only the merge commit does not authenticate its
-unsigned bot parent.
-
-GitHub-created pull requests using `GITHUB_TOKEN` may require one-time workflow
-approval before the pull-request CI starts. The update workflow already runs the
-same release validation before opening the pull request.
-
-## Merge An Automated Manifest PR
-
-The automation branch contains an unsigned bot commit. Never merge it with a
-merge commit, because signing the merge does not authenticate its unsigned
-parent. Use one of the following flows.
-
-For a signed squash, replace `NUMBER` with the pull request number:
-
-```sh
-git switch master
-git pull --ff-only origin master
-git fetch origin pull/NUMBER/head:manifest-pr-NUMBER
-git merge --squash manifest-pr-NUMBER
-git diff --cached -- manifests
-./scripts/validate-release.sh
-git commit -SFF0F1FE0A176071F0E39A94DFF93E1DAE0897EDE \
-  -m "Update bundled Rust manifests"
-git verify-commit HEAD
-guix git authenticate -k origin/keyring \
-  --end="$(git rev-parse HEAD)" \
-  7eb3c7727b341ac671f1b7a06054a8aacc28cb52 \
-  FF0F1FE0A176071F0E39A94DFF93E1DAE0897EDE
-git push origin HEAD:master
-gh pr close NUMBER --comment "Applied as signed commit $(git rev-parse HEAD)."
-git branch -D manifest-pr-NUMBER
-```
-
-When the PR consists of one automation commit, signed cherry-pick is equivalent:
-
-```sh
-git switch master
-git pull --ff-only origin master
-git fetch origin pull/NUMBER/head:manifest-pr-NUMBER
-git cherry-pick -SFF0F1FE0A176071F0E39A94DFF93E1DAE0897EDE \
-  manifest-pr-NUMBER
-./scripts/validate-release.sh
-git verify-commit HEAD
-guix git authenticate -k origin/keyring \
-  --end="$(git rev-parse HEAD)" \
-  7eb3c7727b341ac671f1b7a06054a8aacc28cb52 \
-  FF0F1FE0A176071F0E39A94DFF93E1DAE0897EDE
-git push origin HEAD:master
-gh pr close NUMBER --comment "Applied as signed commit $(git rev-parse HEAD)."
-git branch -D manifest-pr-NUMBER
-```
-
-The squash flow validates before creating the commit. The cherry-pick flow
-validates immediately after creating it; do not push if validation fails. In
-either flow, inspect `git status` and `git diff` before committing or pushing.
+The workflow refuses changes outside `manifests/index.scm` and
+`manifests/snapshots/*.toml`. Before pushing, it fetches `master` again and
+aborts if another commit landed during validation. The `GITHUB_TOKEN` push does
+not trigger another workflow run, so the complete release validation is run
+before creating the signed commit.
 
 ## Release Checklist
 

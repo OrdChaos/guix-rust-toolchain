@@ -125,9 +125,10 @@ Rust distribution server:
 ```
 
 GitHub Actions run the release validation for pushes and pull requests. A daily
-workflow checks the official stable and nightly manifests and opens or updates a
-validated manifest pull request when either channel changes. Automated commits
-must be merged with a key authorized by the Guix channel; see `PUBLISHING.md`.
+workflow checks the official stable and nightly manifests. When either channel
+changes, it validates the complete release, creates a commit with the authorized
+automation signing key, authenticates the resulting channel history, and pushes
+the commit to `master`; see `PUBLISHING.md`.
 
 ## License
 
