@@ -1,0 +1,34 @@
+manifest-version = "2"
+date = "2026-09-10"
+[pkg.rust]
+version = "1.98.1 (fixture)"
+[pkg.rust.target.future-host]
+available = true
+url = "https://example.org/rust.tar.gz"
+hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+[[pkg.rust.target.future-host.components]]
+pkg = "future-tool"
+target = "future-host"
+[[pkg.rust.target.future-host.extensions]]
+pkg = "second-alias"
+target = "future-host"
+[[pkg.rust.target.future-host.extensions]]
+pkg = "unavailable"
+target = "future-host"
+[pkg.future-tool.target.future-host]
+available = true
+url = "https://example.org/future.tar.gz"
+hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+[pkg.second-alias.target.future-host]
+available = true
+url = "https://example.org/second.tar.gz"
+hash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+[pkg.unavailable.target.future-host]
+available = false
+[renames.first-alias]
+to = "second-alias"
+[renames.second-alias]
+to = "nonexistent-third"
+[profiles]
+default = ["future-tool", "platform-only"]
+empty = []
