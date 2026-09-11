@@ -1,0 +1,85 @@
+;;; SPDX-License-Identifier: GPL-3.0-or-later
+(define-module (rust-toolchain manifest)
+  #:use-module (rust-toolchain toml)
+  #:use-module (ice-9 regex)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-9)
+  #:export (read-manifest manifest? manifest-date manifest-version manifest-data
+            manifest-ref sha256-hex? iso-date?))
+
+(define-record-type <manifest>
+  (%make-manifest date version data)
+  manifest?
+  (date manifest-date)
+  (version manifest-version)
+  (data manifest-data))
+
+(define (manifest-ref data . keys)
+  (let loop ((data data) (keys keys))
+    (if (null? keys) data
+        (and (list? data) (loop (assoc-ref data (car keys)) (cdr keys))))))
+
+(define (sha256-hex? value)
+  (and (string? value) (= 64 (string-length value))
+       (string-every (lambda (c) (string-index "0123456789abcdef" c)) value)))
+
+(define (iso-date? value)
+  (and (string? value) (string-match "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" value)
+       (let ((year (string->number (substring value 0 4)))
+             (month (string->number (substring value 5 7)))
+             (day (string->number (substring value 8 10))))
+         (and (> year 0) (<= 1 month 12)
+              (<= 1 day (list-ref
+                         (list 31 (if (and (zero? (modulo year 4))
+                                           (or (not (zero? (modulo year 100)))
+                                               (zero? (modulo year 400)))) 29 28)
+                               31 30 31 30 31 31 30 31 30 31) (- month 1)))))))
+
+(define (read-manifest path)
+  (let* ((data (call-with-input-file path read-rust-toml))
+         (date (manifest-ref data "date"))
+         (version (manifest-ref data "pkg" "rust" "version")))
+    (unless (and (equal? "2" (manifest-ref data "manifest-version"))
+                 (iso-date? date)
+                 (string? version) (not (string-null? version))
+                 (list? (manifest-ref data "pkg")))
+      (error "invalid Rust dist v2 manifest" path))
+    (for-each
+     (lambda (pkg)
+       (let ((targets (manifest-ref (cdr pkg) "target")))
+         (unless (list? targets) (error "missing package targets" (car pkg)))
+         (for-each
+          (lambda (target)
+            (let ((entry (cdr target)))
+              (unless (and (list? entry) (assoc "available" entry)
+                           (boolean? (manifest-ref entry "available")))
+                (error "invalid availability" (car pkg) (car target)))
+              (when (manifest-ref entry "available")
+                (for-each
+                 (lambda (pair)
+                   (let ((url (manifest-ref entry (car pair)))
+                         (hash (manifest-ref entry (cdr pair))))
+                     (when (or (assoc (car pair) entry) (assoc (cdr pair) entry)
+                               (string=? (car pair) "url"))
+                       (unless (and (string? url) (string-prefix? "https://" url)
+                                    (sha256-hex? hash))
+                         (error "invalid archive metadata" (car pkg) (car target))))))
+                 '(("url" . "hash") ("xz_url" . "xz_hash"))))
+              (for-each
+               (lambda (key)
+                 (let ((items (manifest-ref entry key)))
+                   (when items
+                     (unless (and (list? items)
+                                  (every (lambda (item)
+                                           (and (string? (manifest-ref item "pkg"))
+                                                (string? (manifest-ref item "target")))) items))
+                       (error "invalid host component list" key)))))
+               '("components" "extensions")))) targets)))
+     (manifest-ref data "pkg"))
+    (unless (and (list? (manifest-ref data "profiles"))
+                 (every (lambda (entry) (and (list? (cdr entry)) (every string? (cdr entry))))
+                        (manifest-ref data "profiles"))
+                 (every (lambda (entry) (string? (manifest-ref (cdr entry) "to")))
+                        (or (manifest-ref data "renames") '())))
+      (error "invalid profiles or renames" path))
+    (%make-manifest date version data)))
