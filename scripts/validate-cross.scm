@@ -25,9 +25,15 @@
       #:builder
       (with-imported-modules '((guix build utils))
         #~(begin
-            (use-modules (guix build utils)
+            (use-modules (guix build utils) (ice-9 popen) (srfi srfi-13)
                          (rnrs bytevectors)
                          (rnrs io ports))
+            (define (output . arguments)
+              (let* ((port (apply open-pipe* OPEN_READ arguments))
+                     (text (get-string-all port))
+                     (status (close-pipe port)))
+                (unless (zero? status) (error "inspection failed" arguments))
+                text))
             (setenv "PATH"
                     (string-append #$(file-append rust "/bin") ":"
                                    #$(file-append cross-gcc "/bin")))
@@ -48,7 +54,16 @@
             (invoke "rustc" "--target=aarch64-unknown-linux-gnu"
                     "-C" "linker=aarch64-linux-gnu-gcc" "hello.rs"
                     "-o" "hello-aarch64")
-            (invoke #$(file-append binutils "/bin/readelf") "-h" "hello-aarch64")
+            (let ((header (output #$(file-append binutils "/bin/readelf")
+                                  "-h" "hello-aarch64"))
+                  (program (output #$(file-append binutils "/bin/readelf")
+                                   "-l" "hello-aarch64")))
+              (unless (and (string-contains header "Class:                             ELF64")
+                           (string-contains header "Data:                              2's complement, little endian")
+                           (string-contains header "Machine:                           AArch64")
+                           (string-contains program
+                                            "Requesting program interpreter: /gnu/store/"))
+                (error "invalid AArch64 ELF output" header program)))
             (unless (and (file-exists? "hello.wasm")
                          (file-exists? "hello-aarch64"))
               (error "cross outputs missing"))

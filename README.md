@@ -13,11 +13,10 @@ the selected official manifest.
 
 ## Use The Proxy
 
-Build or install the proxy package from a checkout:
+Install the proxy package from a checkout:
 
 ```sh
-guix install -L guix -e \
-  '(begin (use-modules (rust-toolchain proxy)) %rust-toolchain-proxies)'
+guix install -L guix rust-toolchain-proxies
 ```
 
 The installed `cargo`, `rustc`, and `rustdoc` commands select stable by default,
@@ -32,8 +31,10 @@ targets = ["wasm32-unknown-unknown"]
 ```
 
 Legacy one-line `rust-toolchain` files are also supported. An explicit
-`+stable`, `+nightly`, or `+nightly-YYYY-MM-DD` argument takes precedence and is
-removed before the real command runs:
+`+stable`, `+nightly`, or `+nightly-YYYY-MM-DD` argument takes precedence over
+`RUSTUP_TOOLCHAIN` and project files, and is removed before the real command
+runs. Host-qualified forms such as `stable-x86_64-unknown-linux-gnu` are
+accepted for the supported host.
 
 ```sh
 cargo +stable --version
@@ -65,8 +66,11 @@ Scheme callers can construct a package directly:
   #:targets '("wasm32-unknown-unknown" "aarch64-unknown-linux-gnu"))
 ```
 
-The module also exports `%rust-stable` and `%rust-nightly`. Explicit unavailable
-components or targets are errors rather than silently omitted.
+The module also exports `%rust-stable` and `%rust-nightly`. From a checkout,
+`guix install -L guix rust-toolchain-stable` and
+`guix install -L guix rust-toolchain-nightly` install those packages directly.
+Explicit unavailable components or targets are errors rather than silently
+omitted.
 
 This repository is a Guix channel with package modules under `guix/`. Add its
 Git URL to a channel declaration in the usual way; `.guix-channel` sets the
@@ -105,11 +109,17 @@ guix repl -L guix scripts/validate-cross.scm
 ./scripts/validate-proxy.sh
 ```
 
+Run all of the above through one release entry point:
+
+```sh
+./scripts/validate-release.sh
+```
+
 The live updater test is intentionally separate because it contacts the official
 Rust distribution server:
 
 ```sh
-guix repl -L guix tests/updater-live.scm
+./scripts/validate-release.sh --live
 ```
 
 ## License

@@ -105,6 +105,8 @@ Native, cross, and proxy integration checks are respectively
 `guix repl -L guix scripts/validate-toolchains.scm`,
 `guix repl -L guix scripts/validate-cross.scm`, and
 `./scripts/validate-proxy.sh`.
+`./scripts/validate-release.sh` runs all offline and integration checks;
+`--live` additionally verifies current official updater endpoints.
 
 The parser is intentionally not full TOML. Future official syntax outside the
 documented subset requires an explicit parser extension with a real-manifest
