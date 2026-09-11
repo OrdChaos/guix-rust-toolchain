@@ -1,0 +1,85 @@
+;;; SPDX-License-Identifier: GPL-3.0-or-later
+(define-module (rust-toolchain package)
+  #:use-module (rust-toolchain component)
+  #:use-module (rust-toolchain database)
+  #:use-module (rust-toolchain manifest)
+  #:use-module (guix packages)
+  #:use-module (guix download)
+  #:use-module (guix gexp)
+  #:use-module (guix modules)
+  #:use-module (guix base16)
+  #:use-module (guix utils)
+  #:use-module (guix build-system trivial)
+  #:use-module ((guix licenses) #:prefix license:)
+  #:use-module (gnu packages base)
+  #:use-module (gnu packages bash)
+  #:use-module (gnu packages commencement)
+  #:use-module (gnu packages compression)
+  #:use-module (gnu packages elf)
+  #:use-module (gnu packages gcc)
+  #:use-module (gnu packages tls)
+  #:export (rust-toolchain %rust-stable %rust-nightly))
+
+(define* (rust-toolchain channel #:key (profile 'default) (components '())
+                         (targets '()) (system (%current-system)))
+  (unless (string=? system "x86_64-linux")
+    (error "unsupported Rust toolchain host system" system))
+  (let* ((manifest (resolve-manifest channel))
+         (selected (resolve-components
+                    manifest (make-rust-toolchain-spec channel #:profile profile
+                              #:components components #:targets targets)
+                    "x86_64-unknown-linux-gnu"))
+         (archives
+          (map (lambda (component)
+                 (origin
+                   (method url-fetch)
+                   (uri (component-url component))
+                   (sha256 (base16-string->bytevector
+                            (component-sha256 component)))))
+               selected)))
+    (package
+      (name "rust-toolchain")
+      (version (if (string-prefix? "nightly" channel)
+                   (string-append "nightly-" (manifest-date manifest))
+                   (car (string-split (manifest-version manifest) #\space))))
+      (source #f)
+      (build-system trivial-build-system)
+      (arguments
+       (list
+        #:system system
+        #:builder
+        (with-imported-modules
+            (cons '(rust-toolchain build)
+                  (source-module-closure '((guix build utils))))
+        #~(begin
+            (use-modules (rust-toolchain build))
+            (install-toolchain
+             #$output (list #$@archives)
+             (list #$(file-append bash-minimal "/bin")
+                   #$(file-append coreutils "/bin")
+                   #$(file-append grep "/bin")
+                   #$(file-append sed "/bin")
+                   #$(file-append findutils "/bin")
+                   #$(file-append tar "/bin")
+                   #$(file-append xz "/bin")
+                   #$(file-append gzip "/bin")
+                   #$(file-append patchelf "/bin")
+                   #$(file-append binutils "/bin"))
+             (list #$(file-append glibc "/lib")
+                   (string-append #$gcc:lib "/lib")
+                   #$(file-append zlib "/lib")
+                   (string-append #$zstd:lib "/lib")
+                   #$(file-append openssl "/lib"))
+             #$(file-append glibc "/lib/ld-linux-x86-64.so.2")
+             (list #$(file-append ld-wrapper "/bin")
+                   #$(file-append gcc "/bin"))
+             #$(file-append glibc "/lib"))))))
+      (supported-systems '("x86_64-linux"))
+      (home-page "https://www.rust-lang.org")
+      (synopsis "Coherent upstream Rust toolchain snapshot")
+      (description "Install verified upstream Rust component archives into one
+output, with Guix runtime libraries and a native Guix linker environment.")
+      (license (list license:asl2.0 license:expat)))))
+
+(define %rust-stable (rust-toolchain "1.98.1"))
+(define %rust-nightly (rust-toolchain "nightly-2026-09-10"))
