@@ -27,7 +27,7 @@ OrdChaos <orderchaos@ordchaos.com>
 ```
 
 The orphan `keyring` branch contains its public key as
-`ordchaos-E0897EDE.key`. Push both branches when publishing:
+`ordchaos.key`. Push both branches when publishing:
 
 ```sh
 git push -u origin master
