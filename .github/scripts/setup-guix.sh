@@ -51,7 +51,10 @@ chmod +x "$work_dir/guix-install.sh"
   | sudo env GUIX_BINARY_FILE_NAME="$work_dir/$archive" \
       "$work_dir/guix-install.sh"
 
-# Ubuntu 24.04 otherwise denies the user namespaces used by Guix commands.
+# Ubuntu 24.04 otherwise denies Guix user namespaces.  The profile bundled with
+# Guix 1.5.0 also denies executing build outputs under /tmp, so replace it with
+# one unconfined profile restricted to Guix executables instead of purging
+# AppArmor system-wide.
 if [[ -f /sys/module/apparmor/parameters/enabled ]] \
   && command -v apparmor_parser >/dev/null; then
   cat > "$work_dir/guix.apparmor" <<'EOF'
@@ -62,8 +65,14 @@ profile guix /gnu/store/{*-guix-command,*/bin/guix-daemon,*/bin/guix,*/bin/guile
   include if exists <local/guix>
 }
 EOF
+  sudo systemctl stop guix-daemon.service
+  if [[ -f /etc/apparmor.d/guix-daemon ]]; then
+    sudo apparmor_parser --remove /etc/apparmor.d/guix-daemon
+    sudo rm --force /etc/apparmor.d/guix-daemon
+  fi
   sudo install --mode=0644 "$work_dir/guix.apparmor" /etc/apparmor.d/guix
   sudo apparmor_parser --warn=all --replace /etc/apparmor.d/guix
+  sudo systemctl start guix-daemon.service
 fi
 
 guix_bin=/var/guix/profiles/per-user/root/current-guix/bin
