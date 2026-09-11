@@ -19,6 +19,9 @@ for root in "$cache/guix-rust-toolchain/roots/"*; do
   test -L "$root"
   guix gc --list-roots | grep -F -x "$root"
 done
+for entry in "$cache/guix-rust-toolchain/entries/"????????????????; do
+  grep '^provider:/gnu/store/.*-guix-rust-toolchain-provider$' "$entry"
+done
 
 GUIX_DAEMON_SOCKET=/does-not-exist "$proxy/cargo" +stable --version \
   | grep '^cargo 1\.98\.1 '

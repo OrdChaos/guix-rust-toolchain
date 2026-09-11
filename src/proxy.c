@@ -177,11 +177,13 @@ int main(int argc, char **argv) {
   const char *invoked = strrchr(argv[0], '/');
   invoked = invoked ? invoked + 1 : argv[0];
   char tool[32], *selector = NULL;
-  if (sscanf(invoked, "%31[^-]-stable", tool) == 1 && strstr(invoked, "-stable"))
-    selector = "stable";
-  else if (sscanf(invoked, "%31[^-]-nightly", tool) == 1 && strstr(invoked, "-nightly"))
-    selector = "nightly";
-  else {
+  char *suffix = strrchr(invoked, '-');
+  if (suffix && (!strcmp(suffix, "-stable") || !strcmp(suffix, "-nightly"))) {
+    size_t tool_length = (size_t)(suffix - invoked);
+    if (!tool_length || tool_length >= sizeof tool) fail("invalid proxy name");
+    memcpy(tool, invoked, tool_length); tool[tool_length] = 0;
+    selector = suffix + 1;
+  } else {
     if (strlen(invoked) >= sizeof tool) fail("invalid proxy name");
     strcpy(tool, invoked);
   }
@@ -211,6 +213,14 @@ int main(int argc, char **argv) {
     identity = strdup("channel:stable");
     identity_length = strlen(identity);
   }
+
+  size_t provider_length = strlen(PROVIDER);
+  char *request_identity = identity;
+  identity = allocate(provider_length + identity_length + 11);
+  int prefix = sprintf(identity, "provider:%s\n", PROVIDER);
+  memcpy(identity + prefix, request_identity, identity_length);
+  identity_length += (size_t)prefix;
+  free(request_identity);
 
   uint64_t hash = hash_bytes(identity, identity_length, UINT64_C(1469598103934665603));
   const char *base = getenv("XDG_CACHE_HOME"), *home = getenv("HOME");
