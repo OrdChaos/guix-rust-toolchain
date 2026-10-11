@@ -58,9 +58,9 @@
                 (for-each
                  (lambda (name)
                    (symlink "rust-toolchain-proxy" (string-append bin "/" name)))
-                 '("cargo" "rustc" "rustdoc"
-                   "cargo-stable" "rustc-stable" "rustdoc-stable"
-                   "cargo-nightly" "rustc-nightly" "rustdoc-nightly"))))))))
+                 '("cargo" "rustc" "rustdoc" "rust-analyzer"
+                    "cargo-stable" "rustc-stable" "rustdoc-stable" "rust-analyzer-stable"
+                    "cargo-nightly" "rustc-nightly" "rustdoc-nightly" "rust-analyzer-nightly"))))))))
     (inputs (list guix))
     (supported-systems '("x86_64-linux"))
     (home-page "https://rust-lang.org/")

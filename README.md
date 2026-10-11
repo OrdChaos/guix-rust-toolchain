@@ -20,8 +20,8 @@ Install the proxy package from a checkout:
 guix install -L guix rust-toolchain-proxies
 ```
 
-The installed `cargo`, `rustc`, and `rustdoc` commands select stable by default,
-or the nearest project toolchain file:
+The installed `cargo`, `rustc`, `rustdoc`, and `rust-analyzer` commands select
+stable by default, or the nearest project toolchain file:
 
 ```toml
 [toolchain]
@@ -34,8 +34,9 @@ targets = ["wasm32-unknown-unknown"]
 Legacy one-line `rust-toolchain` files are also supported. An explicit
 `+stable`, `+nightly`, or `+nightly-YYYY-MM-DD` argument takes precedence over
 `RUSTUP_TOOLCHAIN` and project files, and is removed before the real command
-runs. Host-qualified forms such as `stable-x86_64-unknown-linux-gnu` are
-accepted for the supported host.
+runs. `RUSTUP_TOOLCHAIN` can also name a realized `/gnu/store` toolchain output.
+Host-qualified forms such as `stable-x86_64-unknown-linux-gnu` are accepted for
+the supported host.
 
 ```sh
 cargo +stable --version
@@ -43,8 +44,14 @@ rustc +nightly-2026-09-10 --version
 ```
 
 The suffixed commands `cargo-stable`, `rustc-stable`, `rustdoc-stable`,
-`cargo-nightly`, `rustc-nightly`, and `rustdoc-nightly` provide the same fixed
-selection without a `+` argument.
+`rust-analyzer-stable`, `cargo-nightly`, `rustc-nightly`, `rustdoc-nightly`,
+and `rust-analyzer-nightly` provide the same fixed selection without a `+`
+argument.
+
+`rust-analyzer` realizes an otherwise matching toolchain with
+`rust-analyzer-preview` and `rust-src` added. This keeps the language server,
+compiler, Cargo, and standard-library sources at one Rust version without
+requiring every project to repeat those components in its toolchain file.
 
 The first use realizes the selected package through Guix. Subsequent uses read
 a small cache under `${XDG_CACHE_HOME:-$HOME/.cache}/guix-rust-toolchain` and

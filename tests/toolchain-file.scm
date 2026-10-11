@@ -37,8 +37,13 @@
 (test-equal "TOML targets" '("wasm32-unknown-unknown")
   (rust-toolchain-spec-targets parsed))
 (test-assert "file API returns package" (package? (rust-toolchain-from-file toml)))
+(test-assert "file API accepts extra components"
+  (package? (rust-toolchain-from-file toml
+                                      #:extra-components '("rust-analyzer-preview"))))
 (test-assert "current-directory API returns package"
   (package? (rust-toolchain-from-current-directory child)))
+(test-error "extra components must be strings" #t
+  (rust-toolchain-from-current-directory child #:extra-components '(rust-src)))
 
 (for-each
  (lambda (text)

@@ -60,6 +60,8 @@ grep -F -x "$stable_version" "$cache/stable-second.out"
 stable_entry=$(grep -l '^channel:stable$' \
   "$cache/guix-rust-toolchain/entries/"????????????????)
 stable_name=$(basename "$stable_entry")
+stable_root=$(readlink "$cache/guix-rust-toolchain/roots/$stable_name")
+test "$(RUSTUP_TOOLCHAIN="$stable_root" "$proxy/cargo" --version)" = "$stable_version"
 printf '%s\n' corrupt > "$stable_entry"
 test "$("$proxy/cargo" +stable --version)" = "$stable_version"
 rm "$cache/guix-rust-toolchain/roots/$stable_name"
@@ -85,11 +87,20 @@ profile = "minimal"
 components = ["rust-src"]
 targets = ["wasm32-unknown-unknown"]
 EOF
+mkdir -p "$project/src"
+printf '%s\n' 'pub fn answer() -> u32 { 42 }' > "$project/src/lib.rs"
 
 project_version=$(CDPATH='' cd -- "$project" && "$proxy/cargo" --version)
 test "$project_version" = "$nightly_version"
+project_analyzer_version=$(CDPATH='' cd -- "$project" && "$proxy/rust-analyzer" --version)
+case "$project_analyzer_version" in
+  'rust-analyzer '*) ;;
+  *) printf '%s\n' "unexpected Rust analyzer: $project_analyzer_version" >&2; exit 1 ;;
+esac
+(CDPATH='' cd -- "$project" && "$proxy/rust-analyzer" analysis-stats . >/dev/null)
 
 test "$("$proxy/cargo-stable" --version)" = "$stable_version"
+test "$("$proxy/rust-analyzer-stable" --version)" = "$("$proxy/rust-analyzer" +stable --version)"
 
 HOME="$cache/empty-xdg-home" XDG_CACHE_HOME='' \
   "$proxy/cargo" +stable --version | grep -F -x "$stable_version"

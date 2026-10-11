@@ -167,6 +167,28 @@ static char *root_target(const char *root, const char *tool) {
   return binary;
 }
 
+static int store_item(const char *path) {
+  if (strncmp(path, "/gnu/store/", 11)) return 0;
+  const char *name = path + 11;
+  for (size_t index = 0; index < 32; index++) {
+    char character = name[index];
+    if (!((character >= '0' && character <= '9') ||
+          (character >= 'a' && character <= 'z'))) return 0;
+  }
+  return name[32] == '-' && name[33] && !strchr(name + 33, '/');
+}
+
+static char *store_target(const char *target, const char *tool) {
+  struct stat status;
+  if (!store_item(target) || stat(target, &status) || !S_ISDIR(status.st_mode))
+    return NULL;
+  char *binary_dir = join(target, "bin");
+  char *binary = join(binary_dir, tool);
+  free(binary_dir);
+  if (access(binary, X_OK)) { free(binary); return NULL; }
+  return binary;
+}
+
 static char *realize(const char *expression, const char *root) {
   int output[2];
   if (pipe(output)) die("pipe failed");
@@ -201,6 +223,7 @@ int main(int argc, char **argv) {
   const char *invoked = strrchr(argv[0], '/');
   invoked = invoked ? invoked + 1 : argv[0];
   char tool[32], *selector = NULL;
+  int environment_selector = 0;
   char *suffix = strrchr(invoked, '-');
   if (suffix && (!strcmp(suffix, "-stable") || !strcmp(suffix, "-nightly"))) {
     size_t tool_length = (size_t)(suffix - invoked);
@@ -211,7 +234,8 @@ int main(int argc, char **argv) {
     if (strlen(invoked) >= sizeof tool) fail("invalid proxy name");
     strcpy(tool, invoked);
   }
-  if (strcmp(tool, "cargo") && strcmp(tool, "rustc") && strcmp(tool, "rustdoc"))
+  if (strcmp(tool, "cargo") && strcmp(tool, "rustc") && strcmp(tool, "rustdoc") &&
+      strcmp(tool, "rust-analyzer"))
     fail("unsupported proxy name");
   int drop_override = 0;
   if (!selector && argc > 1 && argv[1][0] == '+' && argv[1][1]) {
@@ -220,7 +244,18 @@ int main(int argc, char **argv) {
   }
   if (!selector) {
     char *environment = getenv("RUSTUP_TOOLCHAIN");
-    if (environment && environment[0]) selector = environment;
+    if (environment && environment[0]) {
+      selector = environment;
+      environment_selector = 1;
+    }
+  }
+  if (environment_selector) {
+    char *binary = store_target(selector, tool);
+    if (binary) {
+      argv[0] = (char *)tool;
+      execv(binary, argv);
+      die("cannot execute selected Rust tool");
+    }
   }
 
   char *config = NULL, *contents = NULL;
@@ -240,6 +275,15 @@ int main(int argc, char **argv) {
   } else {
     identity = strdup("channel:stable");
     identity_length = strlen(identity);
+  }
+  if (!strcmp(tool, "rust-analyzer")) {
+    static const char requirement[] = "components:rust-analyzer-preview,rust-src\n";
+    char *requested = identity;
+    identity = allocate(identity_length + sizeof requirement);
+    memcpy(identity, requested, identity_length);
+    memcpy(identity + identity_length, requirement, sizeof requirement - 1);
+    identity_length += sizeof requirement - 1;
+    free(requested);
   }
 
   size_t provider_length = strlen(PROVIDER), guix_length = strlen(GUIX);
@@ -287,15 +331,21 @@ int main(int argc, char **argv) {
       if (request_fd < 0) die("cannot write toolchain request snapshot");
       write_all(request_fd, contents, contents_length); close(request_fd);
       char *quoted = scheme_string(request);
-      size_t size = strlen(quoted) + 100;
+      size_t size = strlen(quoted) + 180;
       argument = allocate(size);
-      snprintf(argument, size, "(begin (use-modules (rust-toolchain toolchain-file)) (rust-toolchain-from-file %s))", quoted);
+      if (!strcmp(tool, "rust-analyzer"))
+        snprintf(argument, size, "(begin (use-modules (rust-toolchain toolchain-file)) (rust-toolchain-from-file %s #:extra-components '(\"rust-analyzer-preview\" \"rust-src\")))", quoted);
+      else
+        snprintf(argument, size, "(begin (use-modules (rust-toolchain toolchain-file)) (rust-toolchain-from-file %s))", quoted);
       free(quoted);
     } else {
       char *quoted = scheme_string(selector ? selector : "stable");
-      size_t size = strlen(quoted) + 80;
+      size_t size = strlen(quoted) + 140;
       argument = allocate(size);
-      snprintf(argument, size, "(begin (use-modules (rust-toolchain package)) (rust-toolchain %s))", quoted);
+      if (!strcmp(tool, "rust-analyzer"))
+        snprintf(argument, size, "(begin (use-modules (rust-toolchain package)) (rust-toolchain %s #:components '(\"rust-analyzer-preview\" \"rust-src\")))", quoted);
+      else
+        snprintf(argument, size, "(begin (use-modules (rust-toolchain package)) (rust-toolchain %s))", quoted);
       free(quoted);
     }
     realize(argument, root);
