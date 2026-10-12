@@ -43,7 +43,7 @@
 
 (define (default-define name value)
   (if value
-      (string-append "-D" name "=\\\"" value "\\\"")
+      (string-append "-D" name "=\"" value "\"")
       (string-append "-D" name "=NULL")))
 
 (define* (rust-toolchain-proxies #:key (default-stable #f) (default-nightly #f))
