@@ -4,15 +4,22 @@ set -eu
 project_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 proxy_package=$(guix build -L "$project_root/guix" \
   -e '(begin (use-modules (rust-toolchain proxy)) %rust-toolchain-proxies)')
+configured_proxy_package=$(guix build -L "$project_root/guix" \
+  -e '(begin (use-modules (rust-toolchain proxy))
+              (rust-toolchain-proxies #:default-stable "1.99.0"
+                                      #:default-nightly "nightly-2026-10-10"))')
 cache=$(mktemp -d)
 project=$(mktemp -d)
 trap 'rm -rf "$cache" "$project"' EXIT HUP INT TERM
 
 proxy="$proxy_package/bin"
+configured_proxy="$configured_proxy_package/bin"
 export XDG_CACHE_HOME="$cache"
 
 stable_version=$("$proxy/cargo" +stable --version)
 nightly_version=$("$proxy/cargo" +nightly --version)
+configured_stable_version=$("$proxy/cargo" +1.99.0 --version)
+configured_nightly_version=$("$proxy/cargo" +nightly-2026-10-10 --version)
 case "$stable_version" in
   'cargo '[0-9]*.*.*' '*) ;;
   *) printf '%s\n' "unexpected stable Cargo: $stable_version" >&2; exit 1 ;;
@@ -31,6 +38,18 @@ nightly_channel="nightly-$nightly_date"
 test "$("$proxy/cargo" +"$nightly_channel" --version)" = "$nightly_version"
 test "$(RUSTUP_TOOLCHAIN=nightly "$proxy/cargo" --version)" = "$nightly_version"
 test "$(RUSTUP_TOOLCHAIN=nightly "$proxy/cargo" +stable --version)" = "$stable_version"
+test "$("$configured_proxy/cargo" --version)" = "$configured_stable_version"
+test "$("$configured_proxy/cargo" +stable --version)" = "$configured_stable_version"
+test "$("$configured_proxy/cargo-nightly" --version)" = "$configured_nightly_version"
+test "$("$configured_proxy/cargo" +nightly --version)" = "$configured_nightly_version"
+test "$(RUSTUP_TOOLCHAIN=nightly "$configured_proxy/cargo" --version)" = "$configured_nightly_version"
+grep -l '^channel:1.99.0$' "$cache/guix-rust-toolchain/entries/"???????????????? >/dev/null
+grep -l '^channel:nightly-2026-10-10$' \
+  "$cache/guix-rust-toolchain/entries/"???????????????? >/dev/null
+test "$(GUIX_DAEMON_SOCKET=/does-not-exist "$proxy/cargo" --version)" \
+  = "$configured_stable_version"
+test "$(GUIX_DAEMON_SOCKET=/does-not-exist "$proxy/cargo-nightly" --version)" \
+  = "$configured_nightly_version"
 
 for root in "$cache/guix-rust-toolchain/roots/"*; do
   test -L "$root"

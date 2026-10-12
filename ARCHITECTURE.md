@@ -79,7 +79,12 @@ but never a partially written index. Do not modify snapshots manually.
   them through parent directories, and lowers their complete request to a
   package.
 - `(rust-toolchain proxy)`: `%rust-toolchain-proxies` provides rustup-style
-  command names. The C fast path validates request-keyed cache entries and Guix
+  command names. `rust-toolchain-proxies` accepts optional exact
+  `#:default-stable` and dated `#:default-nightly` values, compiled into a
+  consumer-specific proxy package. They govern direct logical selections only;
+  project files retain authority. Without a configured default, the C fast path
+  reuses the newest valid cached exact release or dated nightly before falling
+  back to the bundled alias. It validates request-keyed cache entries and Guix
   indirect roots before directly executing the selected store binary.
 - `(rust-toolchain toml)`: `read-rust-toml` takes an input port.
 - The updater script defines `update-manifests` (channel list, optional

@@ -20,8 +20,8 @@ Install the proxy package from a checkout:
 guix install -L guix rust-toolchain-proxies
 ```
 
-The installed `cargo`, `rustc`, `rustdoc`, and `rust-analyzer` commands select
-stable by default, or the nearest project toolchain file:
+The installed `cargo`, `rustc`, `rustdoc`, and `rust-analyzer` commands read
+the nearest project toolchain file when no direct selector is given:
 
 ```toml
 [toolchain]
@@ -31,10 +31,14 @@ components = ["rust-src", "clippy", "rustfmt"]
 targets = ["wasm32-unknown-unknown"]
 ```
 
-Legacy one-line `rust-toolchain` files are also supported. An explicit
-`+stable`, `+nightly`, or `+nightly-YYYY-MM-DD` argument takes precedence over
-`RUSTUP_TOOLCHAIN` and project files, and is removed before the real command
-runs. `RUSTUP_TOOLCHAIN` can also name a realized `/gnu/store` toolchain output.
+Legacy one-line `rust-toolchain` files are also supported. Outside a project,
+the logical `stable` and `nightly` selections use configured exact defaults when
+the consumer supplies them. This includes bare commands, suffixed commands,
+`+stable`/`+nightly`, and `RUSTUP_TOOLCHAIN=stable`/`nightly`. Explicit exact
+versions and dated nightlies remain exact. An explicit `+` argument takes
+precedence over `RUSTUP_TOOLCHAIN` and project files, and is removed before the
+real command runs. `RUSTUP_TOOLCHAIN` can also name a realized `/gnu/store`
+toolchain output.
 Host-qualified forms such as `stable-x86_64-unknown-linux-gnu` are accepted for
 the supported host.
 
@@ -55,9 +59,12 @@ requiring every project to repeat those components in its toolchain file.
 
 The first use realizes the selected package through Guix. Subsequent uses read
 a small cache under `${XDG_CACHE_HOME:-$HOME/.cache}/guix-rust-toolchain` and
-execute the store binary directly. Cache entries are validated against their
-complete request and store target. Guix indirect roots keep selected toolchains
-alive. Previous requests remain rooted until the cache is removed; run
+execute the store binary directly. Without configured defaults, a direct
+`stable` or `nightly` selection first reuses the newest matching exact cached
+release or dated nightly, then falls back to the bundled moving alias. Cache
+entries are validated against their complete request and store target. Guix
+indirect roots keep selected toolchains alive. Previous requests remain rooted
+until the cache is removed; run
 `rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/guix-rust-toolchain"` to retire them.
 Deleting the cache only causes active toolchains to be realized again on use.
 
@@ -79,6 +86,21 @@ The module also exports `%rust-stable` and `%rust-nightly`. From a checkout,
 `guix install -L guix rust-toolchain-nightly` install those packages directly.
 Explicit unavailable components or targets are errors rather than silently
 omitted.
+
+Consumers that want reproducible direct command defaults construct the proxy
+package with exact versions:
+
+```scheme
+(use-modules (rust-toolchain proxy))
+
+(rust-toolchain-proxies
+ #:default-stable "1.99.0"
+ #:default-nightly "nightly-2026-10-10")
+```
+
+Both arguments are optional. Omitting either one enables that selector's local
+cache and bundled-alias fallback instead. Project toolchain files are never
+rewritten by these defaults.
 
 This repository is a Guix channel with package modules under `guix/`. Add its
 Git URL to a channel declaration in the usual way; `.guix-channel` sets the
