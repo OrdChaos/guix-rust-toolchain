@@ -106,6 +106,12 @@ profile = "minimal"
 components = ["rust-src"]
 targets = ["wasm32-unknown-unknown"]
 EOF
+cat > "$project/Cargo.toml" <<'EOF'
+[package]
+name = "proxy-integration-test"
+version = "0.1.0"
+edition = "2021"
+EOF
 mkdir -p "$project/src"
 printf '%s\n' 'pub fn answer() -> u32 { 42 }' > "$project/src/lib.rs"
 
