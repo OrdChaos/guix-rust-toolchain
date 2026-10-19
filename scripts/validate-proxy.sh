@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 
+# POSIX test emits no diagnostic on false.  CI tracing identifies the failed
+# assertion while keeping local validation output concise.
+if [ "${CI-}" = true ]; then
+  set -x
+fi
+
 project_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 proxy_package=$(guix build -L "$project_root/guix" \
   -e '(begin (use-modules (rust-toolchain proxy)) %rust-toolchain-proxies)')
