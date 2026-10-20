@@ -97,6 +97,21 @@ passes, it creates an OpenPGP-signed commit, authenticates the complete channel
 history, and fast-forwards `master`. If upstream has not changed, it creates no
 commit. Stable/beta version rollbacks and nightly date rollbacks are rejected.
 
+To recover versions missed during failed scheduled runs, open **Actions > Update
+Rust manifests > Run workflow**, select **master**, and fill in both
+`backfill_start` and `backfill_end` as `YYYY-MM-DD` dates (for example,
+`2026-10-13` and `2026-10-20`). The nightly date range includes both endpoints.
+The backfill script also discovers stable releases published since the start
+date; its stable discovery is not bounded by the end date. The workflow then
+updates the moving `stable` and `nightly` aliases and runs the same release
+validation and signed publication steps. Leaving both dates empty performs the
+usual latest-only update, as do scheduled runs.
+
+Backfilling downloads manifest snapshots, not every historical toolchain binary.
+Existing identical entries can be processed again. If an upstream nightly is
+unavailable for a requested day, the backfill script retries and then fails the
+run without publishing a commit; retry with date ranges excluding that day.
+
 In the GitHub repository settings, open **Actions > General > Workflow
 permissions** and select **Read and write permissions**. Add the armored private
 key and passphrase for fingerprint

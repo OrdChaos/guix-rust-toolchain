@@ -4,6 +4,17 @@ on:
   schedule:
     - cron: "23 5 * * *"
   workflow_dispatch:
+    inputs:
+      backfill_start:
+        description: "Backfill start date (YYYY-MM-DD); leave both dates empty for latest only"
+        required: false
+        type: string
+        default: ""
+      backfill_end:
+        description: "Backfill end date (YYYY-MM-DD, inclusive); required with start date"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -17,12 +28,34 @@ jobs:
     name: Track stable and nightly
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    env:
+      BACKFILL_START: ${{ inputs.backfill_start }}
+      BACKFILL_END: ${{ inputs.backfill_end }}
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           persist-credentials: true
+
+      - name: Validate backfill dates
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$BACKFILL_START" && -z "$BACKFILL_END" ]]; then
+            exit 0
+          fi
+          for value in "$BACKFILL_START" "$BACKFILL_END"; do
+            if [[ ! "$value" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] ||
+               ! parsed=$(date -u --date="$value" +%F) || [[ "$parsed" != "$value" ]]; then
+              echo "Both backfill dates must be valid YYYY-MM-DD dates" >&2
+              exit 1
+            fi
+          done
+          if [[ "$BACKFILL_START" > "$BACKFILL_END" ]]; then
+            echo "Backfill start date must not be after end date" >&2
+            exit 1
+          fi
 
       - name: Check automation credentials
         shell: bash
@@ -44,8 +77,13 @@ jobs:
         run: |
           set -euo pipefail
           log_file="$RUNNER_TEMP/manifest-update.log"
+          : > "$log_file"
+          if [[ -n "$BACKFILL_START" ]]; then
+            guix repl -L guix scripts/backfill-manifests.scm \
+              "$BACKFILL_START" "$BACKFILL_END" 2>&1 | tee -a "$log_file"
+          fi
           guix repl -L guix scripts/update-manifests.scm stable nightly \
-            | tee "$log_file"
+            2>&1 | tee -a "$log_file"
           if [[ -z $(git status --porcelain=v1 --untracked-files=all -- manifests) ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
