@@ -44,7 +44,6 @@
                 (list #:profile 'no-such-profile)))
 (test-error "unknown host" #t
   (resolve-components stable (make-rust-toolchain-spec "stable") "no-such-host"))
-(test-error "absent beta alias" #t (resolve-manifest "beta"))
 (test-error "path traversal channel" #t (resolve-manifest "../../etc/passwd"))
 (test-assert "beta updater endpoint"
   (string-suffix? "/channel-rust-beta.toml" (channel-manifest-url "beta")))

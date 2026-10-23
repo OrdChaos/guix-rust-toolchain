@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   update:
-    name: Track stable and nightly
+    name: Track stable, beta, and nightly
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
@@ -82,7 +82,7 @@ jobs:
             guix repl -L guix scripts/backfill-manifests.scm \
               "$BACKFILL_START" "$BACKFILL_END" 2>&1 | tee -a "$log_file"
           fi
-          guix repl -L guix scripts/update-manifests.scm stable nightly \
+          guix repl -L guix scripts/update-manifests.scm stable beta nightly \
             2>&1 | tee -a "$log_file"
           if [[ -z $(git status --porcelain=v1 --untracked-files=all -- manifests) ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"

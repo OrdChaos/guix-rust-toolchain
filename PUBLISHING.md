@@ -90,7 +90,7 @@ revision when substitutes are unavailable. The complete release validation
 still builds the provider packages and toolchains through the Guix daemon.
 
 `.github/workflows/update-manifests.yml` runs every day at 05:23 UTC and can
-also be started manually. It downloads stable and nightly from the official Rust
+also be started manually. It downloads stable, beta, and nightly from the official Rust
 distribution server, verifies their `.sha256` files, publishes changed snapshots
 to the working tree, and runs the complete release validation. If validation
 passes, it creates an OpenPGP-signed commit, authenticates the complete channel
@@ -103,7 +103,7 @@ Rust manifests > Run workflow**, select **master**, and fill in both
 `2026-10-13` and `2026-10-20`). The nightly date range includes both endpoints.
 The backfill script also discovers stable releases published since the start
 date; its stable discovery is not bounded by the end date. The workflow then
-updates the moving `stable` and `nightly` aliases and runs the same release
+updates the moving `stable`, `beta`, and `nightly` aliases and runs the same release
 validation and signed publication steps. Leaving both dates empty performs the
 usual latest-only update, as do scheduled runs.
 

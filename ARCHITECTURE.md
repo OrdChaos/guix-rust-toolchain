@@ -31,9 +31,9 @@ deduplicated by (component, target), preserving request order.
 
 Run `guix repl -L guix scripts/update-manifests.scm CHANNEL ...` from the project.
 Supported inputs are `stable`, `beta`, `nightly`, `nightly-YYYY-MM-DD`, and full
-`MAJOR.MINOR.PATCH` versions. The default packages resolve the bundled stable and
-nightly aliases; exact versions and dated nightlies remain pinned when those
-aliases advance. Beta is supported by the updater but not prebundled.
+`MAJOR.MINOR.PATCH` versions. The manifest workflow refreshes all three moving
+aliases; exact versions and dated nightlies remain pinned when those aliases
+advance.
 Use absolute `-L` and script paths when invoking from another directory.
 
 Only this explicit maintainer script accesses the network. It requires `curl`
