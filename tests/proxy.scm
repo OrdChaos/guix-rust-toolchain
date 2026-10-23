@@ -11,6 +11,16 @@
                            #:default-nightly "nightly"))
 (test-assert "configured proxy package" (package? %configured-proxies))
 (test-assert "entry owns a package" (package? (rust-toolchain-entry-package stable-entry)))
+(test-equal "entry records default profile" "default"
+  (rust-toolchain-entry-profile stable-entry))
+(test-equal "entry records components" '()
+  (rust-toolchain-entry-components stable-entry))
+(test-equal "entry records targets" '()
+  (rust-toolchain-entry-targets stable-entry))
+(test-error "reject invalid static profile" #t
+  (rust-toolchain-entry "stable" #:profile 'tiny))
+(test-error "reject registry delimiter in component" #t
+  (rust-toolchain-entry "stable" #:components '("rust-src,other")))
 (test-error "reject non-string stable default" #t
   (rust-toolchain-proxies #:toolchains (list stable-entry)
                            #:default-stable 1))

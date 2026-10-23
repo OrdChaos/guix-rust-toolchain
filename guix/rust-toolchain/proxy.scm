@@ -3,6 +3,7 @@
   #:use-module (rust-toolchain component)
   #:use-module (rust-toolchain database)
   #:use-module (rust-toolchain package)
+  #:use-module (gnu packages bash)
   #:use-module (guix build-system gnu)
   #:use-module (guix gexp)
   #:use-module (guix packages)
@@ -10,8 +11,10 @@
   #:use-module (srfi srfi-9)
   #:use-module ((guix licenses) #:prefix license:)
   #:export (rust-toolchain-entry rust-toolchain-entry?
-            rust-toolchain-entry-selector rust-toolchain-entry-package
-            rust-toolchain-proxies %rust-toolchain-proxies))
+             rust-toolchain-entry-selector rust-toolchain-entry-profile
+             rust-toolchain-entry-components rust-toolchain-entry-targets
+             rust-toolchain-entry-package
+             rust-toolchain-proxies %rust-toolchain-proxies))
 
 (define project-directory
   (dirname (dirname (dirname
@@ -21,22 +24,52 @@
 (define proxy-source
   (local-file (string-append project-directory "/src/proxy.c")))
 
+(define channel-modules
+  (local-file (string-append project-directory "/guix") #:recursive? #t))
+
 (define-record-type <rust-toolchain-entry>
-  (make-rust-toolchain-entry selector package)
+  (make-rust-toolchain-entry selector profile components targets package)
   rust-toolchain-entry?
   (selector rust-toolchain-entry-selector)
+  (profile rust-toolchain-entry-profile)
+  (components rust-toolchain-entry-components)
+  (targets rust-toolchain-entry-targets)
   (package rust-toolchain-entry-package))
 
+(define %profiles '("minimal" "default" "complete"))
+
+(define (profile-name profile)
+  (let ((name (if (symbol? profile) (symbol->string profile) profile)))
+    (unless (member name %profiles)
+      (error "invalid Rust toolchain profile" profile))
+    name))
+
+(define (registry-token? value)
+  (and (string? value)
+       (not (string-null? value))
+       (not (string-index value #\tab))
+       (not (string-index value #\newline))
+       (not (string-index value #\return))
+       (not (string-index value #\,))))
+
+(define (registry-list values)
+  (if (null? values) ""
+      (string-append (car values) "," (registry-list (cdr values)))))
+
 (define* (rust-toolchain-entry selector #:key (profile 'default)
-                                (components '()) (targets '()))
+                                 (components '()) (targets '()))
   "Return one declared Rust toolchain and its immutable package.
 SELECTOR must be present in the bundled manifest index."
-  (unless (channel? selector)
-    (error "invalid Rust toolchain selector" selector))
-  (make-rust-toolchain-entry
-   selector
-   (rust-toolchain selector #:profile profile
-                   #:components components #:targets targets)))
+  (let ((profile (profile-name profile)))
+    (unless (and (channel? selector)
+                 (list? components) (every registry-token? components)
+                 (list? targets) (every registry-token? targets))
+      (error "invalid static Rust toolchain capabilities"
+             selector components targets))
+    (make-rust-toolchain-entry
+     selector profile components targets
+     (rust-toolchain selector #:profile (string->symbol profile)
+                     #:components components #:targets targets))))
 
 (define (entry-by-selector entries selector)
   (find (lambda (entry)
@@ -51,7 +84,10 @@ SELECTOR must be present in the bundled manifest index."
 
 (define (registry-file entries default-stable default-beta default-nightly)
   (define (line selector entry)
-    (list selector "\t" (file-append (rust-toolchain-entry-package entry) "/bin") "\n"))
+    (list selector "\t" (file-append (rust-toolchain-entry-package entry) "/bin")
+          "\t" (rust-toolchain-entry-profile entry)
+          "\t" (registry-list (rust-toolchain-entry-components entry))
+          "\t" (registry-list (rust-toolchain-entry-targets entry)) "\n"))
   (define (default-line name selector)
     (and selector (not (string=? name selector))
          (line name (entry-by-selector entries selector))))
@@ -96,20 +132,29 @@ resolve to the optional declared defaults; no invocation downloads a toolchain."
                 (invoke "gcc" "-std=c11" "-O2" "-Wall" "-Wextra" "-Werror"
                         (string-append "-DREGISTRY=\"" #$registry "\"")
                         #$proxy-source "-o" "rust-toolchain-proxy")))
-            (replace 'install
-              (lambda _
-                (let ((bin (string-append #$output "/bin")))
-                  (mkdir-p bin)
-                  (install-file "rust-toolchain-proxy" bin)
+             (replace 'install
+               (lambda _
+                 (let ((bin (string-append #$output "/bin")))
+                   (mkdir-p bin)
+                   (install-file "rust-toolchain-proxy" bin)
                   (for-each
-                   (lambda (name)
-                     (symlink "rust-toolchain-proxy" (string-append bin "/" name)))
-                    '("cargo" "rustc" "rustdoc" "rust-analyzer"))))))))
+                    (lambda (name)
+                      (symlink "rust-toolchain-proxy" (string-append bin "/" name)))
+                     '("cargo" "rustc" "rustdoc" "rust-analyzer"))
+                   (call-with-output-file (string-append bin "/rust-toolchain-shell")
+                     (lambda (port)
+                       (format port "#!~a~%exec guix shell -L ~a -e '~a' \"$@\"~%"
+                               #$(file-append bash "/bin/sh")
+                               #$channel-modules
+                               "(begin (use-modules (rust-toolchain toolchain-file)) (rust-toolchain-from-current-directory))")))
+                   (chmod (string-append bin "/rust-toolchain-shell") #o555)))))))
       (supported-systems '("x86_64-linux"))
       (home-page "https://rust-lang.org/")
       (synopsis "Static rustup-style proxies for declared Guix Rust toolchains")
       (description "Select declared immutable Rust toolchains without rustup,
-runtime downloads, mutable toolchain state, or Guix invocation.")
+runtime downloads, mutable toolchain state, or Guix invocation.  The separate
+rust-toolchain-shell command explicitly enters a Guix shell for the current
+project's toolchain file.")
       (license license:gpl3+))))
 
 (define %rust-toolchain-proxies (rust-toolchain-proxies))

@@ -78,11 +78,15 @@ but never a partially written index. Do not modify snapshots manually.
   them through parent directories, and lowers their complete request to a
   package.
 - `(rust-toolchain proxy)`: `rust-toolchain-entry` declares one immutable
-  package. `%rust-toolchain-proxies` and `rust-toolchain-proxies` provide
+  package and its profile, components, and targets. `%rust-toolchain-proxies`
+  and `rust-toolchain-proxies` provide
   rustup-style command names backed only by declared entries. Optional stable,
   beta, and nightly defaults name entries. The proxy compiles a registry of
-  store paths, executes only those paths, and never invokes Guix, downloads,
-  caches, or creates indirect GC roots.
+  store paths and static capabilities, executes only those paths, validates
+  project-file requests without changing packages, and never invokes Guix,
+  downloads, caches, or creates indirect GC roots.  The separate
+  `rust-toolchain-shell` command explicitly invokes Guix to enter a shell for
+  the current project's toolchain file.
 - `(rust-toolchain toml)`: `read-rust-toml` takes an input port.
 - The updater script defines `update-manifests` (channel list, optional
   `#:directory` and injected `#:fetch` for tests), `fetch-official`, and

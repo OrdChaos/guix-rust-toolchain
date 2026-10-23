@@ -37,22 +37,54 @@ cargo +stable --version
 rustc +nightly --version
 ```
 
-Legacy one-line `rust-toolchain` files and a minimal TOML file are supported:
+Legacy one-line `rust-toolchain` files and `rust-toolchain.toml` files with
+`channel`, `profile`, `components`, and `targets` are supported:
 
 ```toml
 [toolchain]
 channel = "nightly"
+profile = "default"
+components = ["rust-src"]
+targets = ["wasm32-unknown-unknown"]
 ```
 
 `stable`, `beta`, and `nightly` resolve to declared defaults.  An explicit
 selector must name a declared entry.  `rust-analyzer` requires its selected
-package to include `rust-analyzer-preview` and `rust-src`.  Other TOML fields
-fail rather than causing an implicit package variant.
+package to include `rust-analyzer-preview` and `rust-src`.  TOML profile,
+components, and targets must match the selected entry's declaration.  A missing
+capability fails with an installation hint; other TOML fields fail rather than
+causing an implicit package variant.
 
 The proxy never invokes Guix or downloads a toolchain.  An undeclared selector
 fails with a generic hint to install or enter an environment containing a
 matching `rust-toolchain` package.  Direct packages remain usable independently,
 including through `guix shell -e`.
+
+`rust-toolchain-shell` is an explicit wrapper around that `guix shell` command.
+It reads the current project's toolchain file and opens the matching environment:
+
+```sh
+cd /path/to/project
+rust-toolchain-shell
+```
+
+Pass a command after `--` instead of opening an interactive shell:
+
+```sh
+rust-toolchain-shell -- cargo --version
+```
+
+To use a project toolchain that is not statically declared by the proxy, enter
+a temporary environment explicitly.  This reads the current project's
+`rust-toolchain.toml` when `guix shell` is invoked, never when `cargo` runs:
+
+```sh
+guix shell -L /path/to/guix-rust-toolchain/guix \
+  -e '(begin
+        (use-modules (rust-toolchain toolchain-file))
+        (rust-toolchain-from-current-directory))' \
+  -- cargo --version
+```
 
 ## Package API
 
@@ -97,6 +129,7 @@ Run the offline unit suites:
 for test in manifest components database updater package toolchain-file proxy; do
   guix repl -L guix "tests/$test.scm"
 done
+tests/proxy-runtime.sh
 ```
 
 Run build and runtime integration checks:
