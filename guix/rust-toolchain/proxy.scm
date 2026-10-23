@@ -27,6 +27,9 @@
 (define channel-modules
   (local-file (string-append project-directory "/guix") #:recursive? #t))
 
+(define channel-manifests
+  (local-file (string-append project-directory "/manifests") #:recursive? #t))
+
 (define-record-type <rust-toolchain-entry>
   (make-rust-toolchain-entry selector profile components targets package)
   rust-toolchain-entry?
@@ -141,10 +144,11 @@ resolve to the optional declared defaults; no invocation downloads a toolchain."
                     (lambda (name)
                       (symlink "rust-toolchain-proxy" (string-append bin "/" name)))
                      '("cargo" "rustc" "rustdoc" "rust-analyzer"))
-                   (call-with-output-file (string-append bin "/rust-toolchain-shell")
-                     (lambda (port)
-                       (format port "#!~a~%exec guix shell -L ~a -e '~a' \"$@\"~%"
-                               #$(file-append bash "/bin/sh")
+                    (call-with-output-file (string-append bin "/rust-toolchain-shell")
+                      (lambda (port)
+                        (format port "#!~a~%GUIX_RUST_TOOLCHAIN_INTERNAL_MANIFESTS=~a exec guix shell -L ~a -e '~a' \"$@\"~%"
+                                #$(file-append bash "/bin/sh")
+                               #$channel-manifests
                                #$channel-modules
                                "(begin (use-modules (rust-toolchain toolchain-file)) (rust-toolchain-from-current-directory))")))
                    (chmod (string-append bin "/rust-toolchain-shell") #o555)))))))

@@ -59,6 +59,9 @@ case "$project_analyzer_version" in
   *) printf '%s\n' "unexpected Rust analyzer: $project_analyzer_version" >&2; exit 1 ;;
 esac
 
+test -x "$proxy/rust-toolchain-shell"
+(CDPATH='' cd -- "$project" && "$proxy/rust-toolchain-shell" -n -- true)
+
 XDG_CACHE_HOME="$work/cache" "$proxy/cargo" +stable --version | grep -F -x "$stable_version"
 test ! -e "$work/cache/guix-rust-toolchain"
 
