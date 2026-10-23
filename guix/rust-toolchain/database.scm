@@ -32,8 +32,8 @@
 (define (channel? channel)
   (and (string? channel)
        (or (member channel '("stable" "beta" "nightly"))
-           (and (string-prefix? "nightly-" channel) (iso-date? (substring channel 8)))
-           (string-match "^[0-9]+\\.[0-9]+\\.[0-9]+$" channel)) #t))
+            (and (string-prefix? "nightly-" channel) (iso-date? (substring channel 8)))
+            (string-match "^[0-9]+\\.[0-9]+\\.[0-9]+(-beta\\.[0-9]+)?$" channel)) #t))
 
 (define (channel-manifest-url channel)
   (unless (channel? channel) (error "unsupported Rust channel" channel))

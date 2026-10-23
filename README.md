@@ -1,72 +1,58 @@
 # guix-rust-toolchain
 
-`guix-rust-toolchain` packages official Rust binary distributions as immutable,
-garbage-collector-aware Guix store items. It provides pinned stable and nightly
-toolchains, arbitrary manifest components and targets, standard
-`rust-toolchain.toml` selection, and rustup-style command proxies without using
-rustup or mutable toolchain installation state.
+`guix-rust-toolchain` packages official Rust binary distributions as immutable
+Guix store items.  It provides stable, beta, and nightly toolchains, arbitrary
+manifest components and targets, and rustup-style command proxies without
+rustup, mutable toolchain state, or runtime downloads.
 
-The bundled `stable` and `nightly` aliases follow checksum-pinned snapshots in
-`manifests/index.scm`; exact versions and dated nightlies remain available after
-an alias advances. The host platform is currently limited to `x86_64-linux`;
-target standard libraries remain an open string set governed by the selected
-official manifest.
+Bundled channel aliases follow checksum-pinned snapshots in
+`manifests/index.scm`.  Exact releases and dated nightlies remain available
+after an alias advances.  The host platform is currently `x86_64-linux`.
 
 ## Use The Proxy
 
-Install the proxy package from a checkout:
+Construct a proxy from declared toolchain entries:
 
-```sh
-guix install -L guix rust-toolchain-proxies
+```scheme
+(use-modules (rust-toolchain proxy))
+
+(define %toolchains
+  (list (rust-toolchain-entry "stable"
+                              #:components '("rust-analyzer-preview" "rust-src"))
+        (rust-toolchain-entry "nightly"
+                              #:components '("rust-analyzer-preview" "rust-src"))))
+
+(rust-toolchain-proxies #:toolchains %toolchains
+                         #:default-stable "stable"
+                         #:default-nightly "nightly")
 ```
 
-The installed `cargo`, `rustc`, `rustdoc`, and `rust-analyzer` commands read
-the nearest project toolchain file when no direct selector is given:
-
-```toml
-[toolchain]
-channel = "nightly-2026-09-10"
-profile = "minimal"
-components = ["rust-src", "clippy", "rustfmt"]
-targets = ["wasm32-unknown-unknown"]
-```
-
-Legacy one-line `rust-toolchain` files are also supported. Outside a project,
-the logical `stable` and `nightly` selections use configured exact defaults when
-the consumer supplies them. This includes bare commands, suffixed commands,
-`+stable`/`+nightly`, and `RUSTUP_TOOLCHAIN=stable`/`nightly`. Explicit exact
-versions and dated nightlies remain exact. An explicit `+` argument takes
-precedence over `RUSTUP_TOOLCHAIN` and project files, and is removed before the
-real command runs. `RUSTUP_TOOLCHAIN` can also name a realized `/gnu/store`
-toolchain output.
-Host-qualified forms such as `stable-x86_64-unknown-linux-gnu` are accepted for
-the supported host.
+The installed `cargo`, `rustc`, `rustdoc`, and `rust-analyzer` commands execute
+only a declared store path.  Selection precedence follows rustup where it is
+stateless: `+selector`, `RUSTUP_TOOLCHAIN`, nearest project toolchain file, then
+the stable default.
 
 ```sh
 cargo +stable --version
-rustc +nightly-2026-09-10 --version
+rustc +nightly --version
 ```
 
-The suffixed commands `cargo-stable`, `rustc-stable`, `rustdoc-stable`,
-`rust-analyzer-stable`, `cargo-nightly`, `rustc-nightly`, `rustdoc-nightly`,
-and `rust-analyzer-nightly` provide the same fixed selection without a `+`
-argument.
+Legacy one-line `rust-toolchain` files and a minimal TOML file are supported:
 
-`rust-analyzer` realizes an otherwise matching toolchain with
-`rust-analyzer-preview` and `rust-src` added. This keeps the language server,
-compiler, Cargo, and standard-library sources at one Rust version without
-requiring every project to repeat those components in its toolchain file.
+```toml
+[toolchain]
+channel = "nightly"
+```
 
-The first use realizes the selected package through Guix. Subsequent uses read
-a small cache under `${XDG_CACHE_HOME:-$HOME/.cache}/guix-rust-toolchain` and
-execute the store binary directly. Without configured defaults, a direct
-`stable` or `nightly` selection first reuses the newest matching exact cached
-release or dated nightly, then falls back to the bundled moving alias. Cache
-entries are validated against their complete request and store target. Guix
-indirect roots keep selected toolchains alive. Previous requests remain rooted
-until the cache is removed; run
-`rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/guix-rust-toolchain"` to retire them.
-Deleting the cache only causes active toolchains to be realized again on use.
+`stable`, `beta`, and `nightly` resolve to declared defaults.  An explicit
+selector must name a declared entry.  `rust-analyzer` requires its selected
+package to include `rust-analyzer-preview` and `rust-src`.  Other TOML fields
+fail rather than causing an implicit package variant.
+
+The proxy never invokes Guix or downloads a toolchain.  An undeclared selector
+fails with a generic hint to install or enter an environment containing a
+matching `rust-toolchain` package.  Direct packages remain usable independently,
+including through `guix shell -e`.
 
 ## Package API
 
@@ -75,52 +61,33 @@ Scheme callers can construct a package directly:
 ```scheme
 (use-modules (rust-toolchain package))
 
-(rust-toolchain "1.98.1"
+(rust-toolchain "stable"
   #:profile 'minimal
   #:components '("rust-src" "clippy" "rustfmt")
   #:targets '("wasm32-unknown-unknown" "aarch64-unknown-linux-gnu"))
 ```
 
-The module also exports `%rust-stable` and `%rust-nightly`. From a checkout,
-`guix install -L guix rust-toolchain-stable` and
-`guix install -L guix rust-toolchain-nightly` install those packages directly.
-Explicit unavailable components or targets are errors rather than silently
-omitted.
+The module also exports `%rust-stable` and `%rust-nightly`.  Explicit unavailable
+components or targets are errors rather than silently omitted.
 
-Consumers that want reproducible direct command defaults construct the proxy
-package with exact versions:
-
-```scheme
-(use-modules (rust-toolchain proxy))
-
-(rust-toolchain-proxies
- #:default-stable "1.99.0"
- #:default-nightly "nightly-2026-10-10")
-```
-
-Both arguments are optional. Omitting either one enables that selector's local
-cache and bundled-alias fallback instead. Project toolchain files are never
-rewritten by these defaults.
-
-This repository is a Guix channel with package modules under `guix/`. Add its
+This repository is a Guix channel with package modules under `guix/`.  Add its
 Git URL to a channel declaration in the usual way; `.guix-channel` sets the
-module directory automatically. See `PUBLISHING.md` for GitHub publication,
+module directory automatically.  See `PUBLISHING.md` for GitHub publication,
 channel authentication, and the automated update workflow.
 
 ## Update Manifests
 
 Normal evaluation is offline and reads only bundled, checksum-verified official
-Rust dist v2 manifests. Network access is isolated in the maintainer command:
+Rust dist v2 manifests.  Network access is isolated in the maintainer command:
 
 ```sh
-guix repl -L guix scripts/update-manifests.scm stable nightly
+guix repl -L guix scripts/update-manifests.scm stable beta nightly
 ```
 
-Accepted selectors are `stable`, `beta`, `nightly`,
-`nightly-YYYY-MM-DD`, and exact `MAJOR.MINOR.PATCH` versions. The updater checks
-the official `.sha256`, validates the snapshot, and atomically updates the
-index. It does not run Git or create commits. See `ARCHITECTURE.md` for the data
-model and trust boundary.
+Accepted selectors are `stable`, `beta`, `nightly`, `nightly-YYYY-MM-DD`, and
+exact Rust release selectors.  The updater checks the official `.sha256`,
+validates the snapshot, and atomically updates the index.  It does not run Git
+or create commits.  See `ARCHITECTURE.md` for the data model and trust boundary.
 
 ## Verify
 
@@ -146,20 +113,17 @@ Run all of the above through one release entry point:
 ./scripts/validate-release.sh
 ```
 
-The live updater test is intentionally separate because it contacts the official
-Rust distribution server:
+The live updater test is intentionally separate because it contacts the
+official Rust distribution server:
 
 ```sh
 ./scripts/validate-release.sh --live
 ```
 
-GitHub Actions run the release validation for pushes and pull requests. A daily
-workflow checks the official stable and nightly manifests. When either channel
-changes, it validates the complete release, creates a commit with the authorized
-automation signing key, authenticates the resulting channel history, and pushes
-the commit to `master`; see `PUBLISHING.md`.
+GitHub Actions run release validation for pushes and pull requests.  A daily
+workflow updates official channel manifests and publishes authenticated commits.
 
 ## License
 
-Provider and proxy source code is available under GPL-3.0-or-later. The packaged
-Rust artifacts retain their upstream Apache-2.0 and MIT licenses.
+Provider and proxy source code is available under GPL-3.0-or-later.  The
+packaged Rust artifacts retain their upstream Apache-2.0 and MIT licenses.

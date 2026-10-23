@@ -8,6 +8,7 @@
   (@@ (rust-toolchain database) store-manifests-directory))
 (define (resolve . args)
   (resolve-components fixture (apply make-rust-toolchain-spec "stable" args) "future-host"))
+(test-assert "beta selector is accepted for CI-provided manifests" (channel? "beta"))
 (test-equal "unknown future names resolve; gzip fallback" "https://example.org/future.tar.gz"
   (component-url (car (resolve))))
 (test-equal "alias stops after one step" "second-alias"

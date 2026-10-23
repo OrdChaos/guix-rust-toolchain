@@ -13,12 +13,11 @@ array-table paths, duplicate keys/tables and trailing garbage rather than silent
 losing data. Raw data is a string-keyed alist; arrays are lists in source order.
 Names are open strings, not a maintained component or target enumeration.
 
-`database.scm` normally locates `manifests/` relative to its provider module,
-not the process working directory. The store-built proxy supplies its bundled
-manifest location through an internal override restricted to `/gnu/store`.
-The index is one validated Scheme datum, read with reader evaluation disabled,
-never loaded/evaluated as code. Digest-derived paths prevent traversal;
-resolution checks snapshot bytes against the index hash.
+`database.scm` locates `manifests/` relative to its provider module, not the
+process working directory. The index is one validated Scheme datum, read with
+reader evaluation disabled, never loaded/evaluated as code. Digest-derived
+paths prevent traversal; resolution checks snapshot bytes against the index
+hash.
 
 Profiles expand the manifest's `[profiles]` entries filtered against the host's
 `pkg.rust.target.HOST.components` and `extensions`. Thus `rust-mingw` is omitted
@@ -78,14 +77,12 @@ but never a partially written index. Do not modify snapshots manually.
 - `(rust-toolchain toolchain-file)`: parses legacy and TOML project files, finds
   them through parent directories, and lowers their complete request to a
   package.
-- `(rust-toolchain proxy)`: `%rust-toolchain-proxies` provides rustup-style
-  command names. `rust-toolchain-proxies` accepts optional exact
-  `#:default-stable` and dated `#:default-nightly` values, compiled into a
-  consumer-specific proxy package. They govern direct logical selections only;
-  project files retain authority. Without a configured default, the C fast path
-  reuses the newest valid cached exact release or dated nightly before falling
-  back to the bundled alias. It validates request-keyed cache entries and Guix
-  indirect roots before directly executing the selected store binary.
+- `(rust-toolchain proxy)`: `rust-toolchain-entry` declares one immutable
+  package. `%rust-toolchain-proxies` and `rust-toolchain-proxies` provide
+  rustup-style command names backed only by declared entries. Optional stable,
+  beta, and nightly defaults name entries. The proxy compiles a registry of
+  store paths, executes only those paths, and never invokes Guix, downloads,
+  caches, or creates indirect GC roots.
 - `(rust-toolchain toml)`: `read-rust-toml` takes an input port.
 - The updater script defines `update-manifests` (channel list, optional
   `#:directory` and injected `#:fetch` for tests), `fetch-official`, and
