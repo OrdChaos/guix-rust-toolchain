@@ -41,8 +41,8 @@
   "snapshots/325df53718c60181d663c7196f251f4ba9bac44ef2616896d1e33e8396a562db.toml"
   "325df53718c60181d663c7196f251f4ba9bac44ef2616896d1e33e8396a562db")
  ("nightly"
-  "snapshots/b43f67a786f2ae9ecb49b6e98a932d5511f1cb0c9ed3bfbb36b4b50f8320336f.toml"
-  "b43f67a786f2ae9ecb49b6e98a932d5511f1cb0c9ed3bfbb36b4b50f8320336f")
+  "snapshots/e8522c287c67ceedd96765fffc44a9dca01997a5e6de47cdfec3e4aad3f841f6.toml"
+  "e8522c287c67ceedd96765fffc44a9dca01997a5e6de47cdfec3e4aad3f841f6")
  ("nightly-2026-01-01"
   "snapshots/29308f8a660380fdde9fa819cc295221ecc9ef9c2e1519e18636bddcab15c40d.toml"
   "29308f8a660380fdde9fa819cc295221ecc9ef9c2e1519e18636bddcab15c40d")
@@ -970,6 +970,9 @@
  ("nightly-2026-11-05"
   "snapshots/b43f67a786f2ae9ecb49b6e98a932d5511f1cb0c9ed3bfbb36b4b50f8320336f.toml"
   "b43f67a786f2ae9ecb49b6e98a932d5511f1cb0c9ed3bfbb36b4b50f8320336f")
+ ("nightly-2026-11-06"
+  "snapshots/e8522c287c67ceedd96765fffc44a9dca01997a5e6de47cdfec3e4aad3f841f6.toml"
+  "e8522c287c67ceedd96765fffc44a9dca01997a5e6de47cdfec3e4aad3f841f6")
  ("stable"
   "snapshots/fb152be80975c194aa5fc684b2aec3a6e14e2b855efe2faa4e5f8ae6e590f463.toml"
   "fb152be80975c194aa5fc684b2aec3a6e14e2b855efe2faa4e5f8ae6e590f463"))
